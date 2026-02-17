@@ -29,9 +29,7 @@
   ],
   "author": "MCP Ambassador Team",
   "license": "MIT",
-  "dependencies": {
-    "@mcpambassador/protocol": "^0.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.11.5",
     "@typescript-eslint/eslint-plugin": "^6.19.0",

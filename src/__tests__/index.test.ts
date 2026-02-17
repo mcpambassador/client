@@ -12,37 +12,18 @@ describe('AmbassadorClient', () => {
     expect(client).toBeInstanceOf(AmbassadorClient);
   });
   
-  it('should throw error on register() - not implemented yet', async () => {
+  // M6.6: Tests for implemented features
+  it('should return cached credentials if already registered', async () => {
     const client = new AmbassadorClient({
       server_url: 'https://ambassador.internal:8443',
       friendly_name: 'test-client',
       host_tool: 'test',
+      client_id: 'existing-client-id',
+      api_key: 'existing-api-key',
     });
     
-    await expect(client.register()).rejects.toThrow('not implemented');
-  });
-  
-  it('should throw error on getToolCatalog() - not implemented yet', async () => {
-    const client = new AmbassadorClient({
-      server_url: 'https://ambassador.internal:8443',
-      friendly_name: 'test-client',
-      host_tool: 'test',
-    });
-    
-    await expect(client.getToolCatalog()).rejects.toThrow('not implemented');
-  });
-  
-  it('should throw error on invokeTool() - not implemented yet', async () => {
-    const client = new AmbassadorClient({
-      server_url: 'https://ambassador.internal:8443',
-      friendly_name: 'test-client',
-      host_tool: 'test',
-    });
-    
-    await expect(client.invokeTool({
-      client_id: 'test',
-      tool_name: 'test_tool',
-      arguments: {},
-    })).rejects.toThrow('not implemented');
+    const response = await client.register();
+    expect(response.client_id).toBe('existing-client-id');
+    expect(response.status).toBe('active');
   });
 });
