@@ -154,5 +154,5 @@ MIT
 
 See the `mcpambassador_docs` repository for:
 - Architecture (`architecture.md`)
-- Development plan (`../docs/dev-plan.md`)
+- Development plan (`../mcpambassador_docs/dev-plan.md`)
 - Client resilience (`architecture.md` §17)
