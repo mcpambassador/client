@@ -1,0 +1,52 @@
+{
+  "name": "@mcpambassador/client",
+  "version": "0.1.0",
+  "description": "MCP Ambassador Client - Lightweight HTTP/MCP proxy for developer workstations",
+  "type": "module",
+  "bin": {
+    "mcpambassador-client": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,json,md}\""
+  },
+  "keywords": [
+    "mcp",
+    "ambassador",
+    "proxy",
+    "client"
+  ],
+  "author": "MCP Ambassador Team",
+  "license": "MIT",
+  "dependencies": {
+    "@mcpambassador/protocol": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

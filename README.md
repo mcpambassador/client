@@ -1,53 +1,158 @@
-# MCP Ambassador — Client
+# MCP Ambassador Client
 
-The **Ambassador Client** is a lightweight MCP (Model Context Protocol) proxy installed on developer workstations. It is the single MCP a developer ever needs to install — it connects to the Ambassador Server to dynamically discover and use any MCP tool the organization has made available.
+Lightweight HTTP/MCP proxy for developer workstations.
 
----
+## Overview
 
-## Architecture Role
+The Ambassador Client is a **thin proxy** that runs on developer machines and connects them to the Ambassador Server. It:
+
+1. **Registers** with the Ambassador Server and receives credentials
+2. **Fetches** the tool catalog from the server (cached locally)
+3. **Implements** the MCP protocol for host apps (VS Code, Claude Desktop, etc.)
+4. **Relays** tool calls from the host app to the Ambassador Server
+
+## Installation
+
+```bash
+# Install globally from npm
+npm install -g @mcpambassador/client
+
+# Or run with npx (zero install)
+npx @mcpambassador/client --server https://ambassador.internal:8443
+
+# Or download binary from GitHub releases
+curl -L https://github.com/mcpambassador/releases/latest/download/mcpambassador-client-linux -o mcpambassador-client
+chmod +x mcpambassador-client
+```
+
+## Usage
+
+### Command Line
+
+```bash
+# Start client with server URL
+mcpambassador-client --server https://ambassador.internal:8443
+
+# Start with configuration file
+mcpambassador-client --config ./config.yaml
+```
+
+### Configuration File
+
+```yaml
+# config.yaml
+server_url: https://ambassador.internal:8443
+friendly_name: my-laptop
+host_tool: vscode
+cache_ttl_seconds: 300
+```
+
+### Host App Configuration
+
+**VS Code (`settings.json`):**
+
+```json
+{
+  "mcpServers": {
+    "ambassador": {
+      "command": "mcpambassador-client",
+      "args": ["--server", "https://ambassador.internal:8443"]
+    }
+  }
+}
+```
+
+**Claude Desktop (`claude_desktop_config.json`):**
+
+```json
+{
+  "mcpServers": {
+    "ambassador": {
+      "command": "mcpambassador-client",
+      "args": ["--server", "https://ambassador.internal:8443"]
+    }
+  }
+}
+```
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Run tests
+npm test
+
+# Lint
+npm run lint
+
+# Format
+npm run format
+
+# Type check
+npm run typecheck
+```
+
+## Architecture
 
 ```
-┌──────────────────┐       ┌──────────────────┐       ┌─────────────────┐
-│  AI Tool         │       │  Ambassador      │       │  Ambassador     │
-│  (VS Code,       │◄─────►│  Client          │◄─────►│  Server         │
-│   Claude Code,   │  MCP  │  (this repo)     │ gRPC/ │  (control plane)│
-│   Gemini CLI…)   │       │                  │ REST  │                 │
-└──────────────────┘       └──────────────────┘       └────────┬────────┘
-                                                               │
-                                                    ┌──────────┴──────────┐
-                                                    │  Downstream MCPs    │
-                                                    │  (GitHub, DB, AWS…) │
-                                                    └─────────────────────┘
+┌─────────────────┐       ┌────────────────────┐       ┌──────────────┐
+│  Host App       │       │  Ambassador Client │       │  Ambassador  │
+│  (VS Code,      │◄─────►│  (this package)    │◄─────►│  Server      │
+│   Claude, etc.) │  MCP  │  Thin HTTP/MCP     │ HTTPS │              │
+└─────────────────┘       │  proxy             │       └──────────────┘
+                          └────────────────────┘
 ```
 
-The client is responsible for:
+**Key behaviors:**
 
-- **Single install point** — replaces per-tool, per-MCP configuration
-- **Tool aggregation** — exposes all server-side tools through a single MCP interface
-- **Local caching** — optional tool metadata and schema caching for offline/low-latency use
-- **Auth relay** — authenticates the developer to the Ambassador Server (OAuth2 / API key)
-- **Connection management** — persistent connection with reconnect and heartbeat
+- **Stateless:** No persistent state (except cached credentials)
+- **Fail closed:** No offline mode — if server is unreachable, tools are unavailable
+- **Per-session cache:** Tool catalog cached in memory for 5 minutes (default)
+- **Automatic retry:** Exponential backoff on server connection failures
 
----
+## Features
 
-## Technology
+| Feature | Status | Phase |
+|---|---|---|
+| Client registration | Placeholder (M6) | 1 |
+| Tool catalog fetch | Placeholder (M6) | 1 |
+| Tool invocation | Placeholder (M6) | 1 |
+| MCP server impl | Placeholder (M6) | 1 |
+| SSE push (kill switch) | Not implemented | 2 |
+| Binary packaging | Not implemented | 2 |
 
-- **Language:** TypeScript / Node.js
-- **Protocol:** MCP (stdio/SSE transport) on the client-facing side; gRPC or REST to the server
-- **Packaging:** npm package + standalone binary (pkg/nexe)
+## Protocol
 
----
+This client depends on `@mcpambassador/protocol` for type definitions:
 
-## Status
+```typescript
+import type {
+  RegistrationRequest,
+  ToolCatalogResponse,
+  ToolInvocationRequest,
+} from '@mcpambassador/protocol';
+```
 
-> **Pre-development.** See [mcpambassador_docs/VISION.md](../mcpambassador_docs/VISION.md) for the full product vision.
+The protocol package is versioned independently. Breaking changes require coordinated client + server releases.
 
----
+## Security
 
-## Related Repositories
+- **TLS required:** Client rejects non-HTTPS connections (except `localhost` for dev)
+- **TOFU:** Trust-on-first-use for self-signed certificates (user confirmation required)
+- **Credentials storage:** API keys stored in OS keychain (Linux: keyring, macOS: Keychain, Windows: Credential Manager)
 
-| Repository | Purpose |
-|---|---|
-| `mcpambassador_server` | Ambassador Server — centralized control plane |
-| `mcpambassador_docs` | Documentation, vision statement, research |
-| `personas` | AI agent team definitions |
+## License
+
+MIT
+
+## Documentation
+
+See the `mcpambassador_docs` repository for:
+- Architecture (`architecture.md`)
+- Development plan (`../docs/dev-plan.md`)
+- Client resilience (`architecture.md` §17)
