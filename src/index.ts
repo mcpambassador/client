@@ -401,6 +401,15 @@ export class AmbassadorClient {
   }
   
   /**
+   * Maximum HTTP response size (10MB)
+   * Prevents OOM from malicious/misconfigured server responses
+   * Consistent with stdin/stdout buffer limits
+   * 
+   * Security: F-SEC-M6.6-006 remediation
+   */
+  private static readonly MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB
+
+  /**
    * Make HTTPS request to Ambassador Server
    */
   private async httpRequest<T>(
@@ -433,6 +442,12 @@ export class AmbassadorClient {
         
         res.on('data', (chunk: Buffer) => {
           data += chunk.toString();
+          
+          // Security: Enforce response size limit to prevent OOM
+          if (data.length > AmbassadorClient.MAX_RESPONSE_SIZE) {
+            req.destroy(new Error(`Response exceeds maximum size of ${AmbassadorClient.MAX_RESPONSE_SIZE} bytes`));
+            return;
+          }
         });
         
         res.on('end', () => {
