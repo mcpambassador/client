@@ -107,16 +107,14 @@ async function main(): Promise<void> {
     console.info('[client] MCP server started (listening on stdio)');
     
     // Handle graceful shutdown
-    process.on('SIGINT', async () => {
+    process.on('SIGINT', () => {
       console.info('[client] Received SIGINT, shutting down...');
-      await client.stop();
-      process.exit(0);
+      void client.stop().then(() => process.exit(0));
     });
     
-    process.on('SIGTERM', async () => {
+    process.on('SIGTERM', () => {
       console.info('[client] Received SIGTERM, shutting down...');
-      await client.stop();
-      process.exit(0);
+      void client.stop().then(() => process.exit(0));
     });
   } catch (error) {
     console.error('[client] Fatal error:', error);

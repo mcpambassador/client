@@ -253,7 +253,7 @@ export class AmbassadorClient {
     
     process.stdin.on('end', () => {
       console.info('[client] stdin closed, shutting down');
-      this.stop();
+      void this.stop();
     });
     
     console.info('[client] MCP server started successfully');
