@@ -1,6 +1,6 @@
 /**
  * Local copy of protocol types from @mcpambassador/protocol
- * 
+ *
  * This is a temporary solution for M6.6 development.
  * In production, the client should use the published @mcpambassador/protocol package.
  */

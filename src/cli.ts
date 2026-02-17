@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * Ambassador Client CLI
- * 
+ *
  * Command-line interface for running the Ambassador Client.
- * 
+ *
  * Usage:
  *   mcpambassador-client --server https://ambassador.internal:8443
  *   mcpambassador-client --config ./config.json
@@ -15,14 +15,14 @@ import { AmbassadorClient, type ClientConfig } from './index.js';
 
 function parseArgs(): { serverUrl?: string; configPath?: string; allowSelfSigned?: boolean } {
   const args = process.argv.slice(2);
-  
+
   let serverUrl: string | undefined;
   let configPath: string | undefined;
   let allowSelfSigned = false;
-  
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     if (arg === '--server') {
       serverUrl = args[++i];
     } else if (arg?.startsWith('--server=')) {
@@ -56,22 +56,22 @@ Example:
       process.exit(0);
     }
   }
-  
+
   return { serverUrl, configPath, allowSelfSigned };
 }
 
 async function main(): Promise<void> {
   const { serverUrl, configPath, allowSelfSigned } = parseArgs();
-  
+
   if (!serverUrl && !configPath) {
     console.error('Error: Either --server or --config must be provided');
     console.error('Run with --help for usage information');
     process.exit(1);
   }
-  
+
   // Load configuration
   let config: ClientConfig;
-  
+
   if (configPath) {
     try {
       const configFile = readFileSync(configPath, 'utf-8');
@@ -89,29 +89,29 @@ async function main(): Promise<void> {
       allow_self_signed: allowSelfSigned,
     };
   }
-  
+
   // Create and initialize client
   const client = new AmbassadorClient(config);
-  
+
   console.info('[client] Starting Ambassador Client...');
   console.info(`[client] Server: ${config.server_url}`);
   console.info(`[client] Friendly name: ${config.friendly_name}`);
-  
+
   try {
     // Register with server (or load existing credentials)
     await client.register();
     console.info('[client] Registration successful');
-    
+
     // Start MCP server
     await client.start();
     console.info('[client] MCP server started (listening on stdio)');
-    
+
     // Handle graceful shutdown
     process.on('SIGINT', () => {
       console.info('[client] Received SIGINT, shutting down...');
       void client.stop().then(() => process.exit(0));
     });
-    
+
     process.on('SIGTERM', () => {
       console.info('[client] Received SIGTERM, shutting down...');
       void client.stop().then(() => process.exit(0));
@@ -122,7 +122,7 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error('[client] Unhandled error:', error);
   process.exit(1);
 });
