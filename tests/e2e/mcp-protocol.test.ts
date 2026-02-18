@@ -196,3 +196,120 @@ describe('MCP protocol E2E @e2e', () => {
     expect(client.proc.killed || client.proc.exitCode !== null).toBeTruthy();
   }, 60000);
 });
+
+describe('Real tool invocation smoke tests @e2e', () => {
+  let client: McpTestClient;
+
+  beforeAll(async () => {
+    client = new McpTestClient(__dirname + '/../../');
+    await client.spawn({
+      MCP_AMBASSADOR_URL: 'https://localhost:8443',
+      MCP_AMBASSADOR_ALLOW_SELF_SIGNED: 'true',
+    });
+
+    // handshake
+    const initResp = await client.send('initialize', { protocolVersion: '2024-11-05' });
+    if (!initResp || !initResp.result) {
+      throw new Error('failed to initialize test client');
+    }
+    client.sendNotification('notifications/initialized');
+  }, 20000);
+
+  afterAll(async () => {
+    await client.close();
+  });
+
+  function gatherTexts(resp: any): string[] {
+    const out: string[] = [];
+    if (!resp || !resp.result || !Array.isArray(resp.result.content)) return out;
+    for (const c of resp.result.content) {
+      if (typeof c.text === 'string') out.push(c.text);
+      else if (typeof c.body === 'string') out.push(c.body);
+      else if (typeof c.value === 'string') out.push(c.value);
+      else out.push(JSON.stringify(c));
+    }
+    return out;
+  }
+
+  it('Alpha Vantage: TOOL_CALL GLOBAL_QUOTE for MU', async () => {
+    const payload = {
+      name: 'TOOL_CALL',
+      arguments: {
+        tool_name: 'GLOBAL_QUOTE',
+        arguments: JSON.stringify({ symbol: 'MU' }),
+      },
+    };
+
+    const resp = await client.send('tools/call', payload, undefined, 45000).catch(e => e);
+    // log response for smoke-test evidence
+    // eslint-disable-next-line no-console
+    console.log('[smoke][alpha-vantage]', JSON.stringify(resp, null, 2));
+
+    // accept either a result or an API error (but not a protocol/auth failure)
+    if (resp && resp.error) {
+      expect(typeof resp.error.message).toBe('string');
+      const msg = resp.error.message.toLowerCase();
+      expect(msg).not.toMatch(/certificate|self\-signed|tls|unauthorized|authentication/);
+      return;
+    }
+
+    expect(resp).toHaveProperty('result');
+    const texts = gatherTexts(resp);
+    expect(texts.length).toBeGreaterThan(0);
+    const found = texts.find(t => /mu|micron|global quote|\d+\.\d{2}/i.test(t));
+    expect(found).toBeDefined();
+  }, 60000);
+
+  it('Context7: resolve-library-id for zod', async () => {
+    const payload = { name: 'resolve-library-id', arguments: { libraryName: 'zod', query: 'zod schema validation' } };
+    const resp = await client.send('tools/call', payload, undefined, 30000).catch(e => e);
+    // eslint-disable-next-line no-console
+    console.log('[smoke][context7][resolve-library-id]', JSON.stringify(resp, null, 2));
+
+    if (resp && resp.error) {
+      expect(typeof resp.error.message).toBe('string');
+      return;
+    }
+
+    expect(resp).toHaveProperty('result');
+    const texts = gatherTexts(resp);
+    const hasZod = texts.some(t => /\bzod\b/i.test(t));
+    expect(hasZod).toBeTruthy();
+  }, 45000);
+
+  it('Context7: query-docs for /colinhacks/zod', async () => {
+    const libId = '/colinhacks/zod';
+    const payload = { name: 'query-docs', arguments: { libraryId: libId, query: 'basic string schema' } };
+    const resp = await client.send('tools/call', payload, undefined, 30000).catch(e => e);
+    // eslint-disable-next-line no-console
+    console.log('[smoke][context7][query-docs]', JSON.stringify(resp, null, 2));
+
+    if (resp && resp.error) {
+      expect(typeof resp.error.message).toBe('string');
+      return;
+    }
+
+    expect(resp).toHaveProperty('result');
+    const texts = gatherTexts(resp);
+    expect(texts.length).toBeGreaterThan(0);
+  }, 45000);
+
+  it('Tavily: tavily_search returns results', async () => {
+    const payload = { name: 'tavily_search', arguments: { query: 'MCP Model Context Protocol specification', max_results: 3 } };
+    const resp = await client.send('tools/call', payload, undefined, 30000).catch(e => e);
+    // eslint-disable-next-line no-console
+    console.log('[smoke][tavily_search]', JSON.stringify(resp, null, 2));
+
+    if (resp && resp.error) {
+      expect(typeof resp.error.message).toBe('string');
+      return;
+    }
+
+    expect(resp).toHaveProperty('result');
+    const texts = gatherTexts(resp);
+    expect(texts.length).toBeGreaterThan(0);
+    const hasUrl = texts.some(t => /https?:\/\//i.test(t));
+    const hasSnippet = texts.some(t => /\w{10,}/.test(t));
+    expect(hasUrl || hasSnippet).toBeTruthy();
+  }, 45000);
+});
