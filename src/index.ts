@@ -434,9 +434,12 @@ export class AmbassadorClient {
         rejectUnauthorized: !this.config.allow_self_signed,
       };
 
-      // Add authentication header
+      // Add authentication headers
       if (authenticated && this.config.api_key) {
         (options.headers as Record<string, string>)['X-API-Key'] = this.config.api_key;
+      }
+      if (authenticated && this.config.client_id) {
+        (options.headers as Record<string, string>)['X-Client-Id'] = this.config.client_id;
       }
 
       const req = https.request(options, (res: IncomingMessage) => {
