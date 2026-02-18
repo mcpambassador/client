@@ -48,7 +48,11 @@ Options:
   --help, -h              Show this help message
 
 Environment Variables:
-  HOSTNAME                Used as friendly_name if not specified in config
+  MCP_AMBASSADOR_URL              Ambassador Server URL (alternative to --server)
+  MCP_AMBASSADOR_API_KEY          Client API key for authentication
+  MCP_AMBASSADOR_ALLOW_SELF_SIGNED  Set to "true" to allow self-signed certs
+  MCP_AMBASSADOR_HOST_TOOL        Host tool identifier (default: vscode)
+  HOSTNAME                        Used as friendly_name if not specified
   
 Example:
   mcpambassador-client --server https://ambassador.internal:8443 --allow-self-signed
@@ -61,7 +65,12 @@ Example:
 }
 
 async function main(): Promise<void> {
-  const { serverUrl, configPath, allowSelfSigned } = parseArgs();
+  const { serverUrl: argServerUrl, configPath, allowSelfSigned: argAllowSelfSigned } = parseArgs();
+
+  // Fall back to environment variables if no CLI args provided
+  const serverUrl = argServerUrl || process.env.MCP_AMBASSADOR_URL;
+  const apiKey = process.env.MCP_AMBASSADOR_API_KEY;
+  const allowSelfSigned = argAllowSelfSigned || process.env.MCP_AMBASSADOR_ALLOW_SELF_SIGNED === 'true';
 
   if (!serverUrl && !configPath) {
     console.error('Error: Either --server or --config must be provided');
@@ -85,8 +94,9 @@ async function main(): Promise<void> {
     config = {
       server_url: serverUrl!,
       friendly_name: process.env.HOSTNAME || 'ambassador-client',
-      host_tool: 'custom',
+      host_tool: process.env.MCP_AMBASSADOR_HOST_TOOL || 'vscode',
       allow_self_signed: allowSelfSigned,
+      api_key: apiKey,
     };
   }
 
