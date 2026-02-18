@@ -23,19 +23,51 @@ import type {
 } from './protocol-types.js';
 
 /**
+ * Custom HTTP error class with structured error information
+ * Finding 1: Properly parse server error responses
+ */
+class HttpError extends Error {
+  constructor(
+    public statusCode: number,
+    public errorCode: string,
+    public errorMessage: string,
+    public rawBody: string
+  ) {
+    super(`HTTP ${statusCode}: ${errorMessage}`);
+    this.name = 'HttpError';
+  }
+}
+
+/**
+ * Mask sensitive secrets in logs
+ * Finding 3: Never log session tokens or preshared keys
+ */
+function maskSecret(value: string): string {
+  if (value.startsWith('amb_pk_')) {
+    // Preshared key: show prefix + first 4 chars
+    return `amb_pk_${value.slice(7, 11)}****`;
+  } else if (value.startsWith('amb_st_')) {
+    // Session token: show prefix only
+    return 'amb_st_****';
+  }
+  // Fallback: show first 11 chars + mask
+  return `${value.slice(0, 11)}****`;
+}
+
+/**
  * Ambassador Client configuration
  */
 export interface ClientConfig {
   /** Ambassador Server URL (e.g., https://ambassador.internal:8443) */
   server_url: string;
-  /** Friendly name for this client */
-  friendly_name: string;
-  /** Host tool identifier */
-  host_tool: string;
-  /** Client ID (assigned by server after registration) */
-  client_id?: string;
-  /** API key (assigned by server after registration) */
-  api_key?: string;
+  /** Preshared key for authentication (REQUIRED) */
+  preshared_key: string;
+  /** Friendly name for this client (default: hostname) */
+  friendly_name?: string;
+  /** Host tool identifier (default: 'vscode') */
+  host_tool?: string;
+  /** Heartbeat interval in seconds (default: 60) */
+  heartbeat_interval_seconds?: number;
   /** Tool catalog cache TTL in seconds (default: 300) */
   cache_ttl_seconds?: number;
   /** Allow self-signed certificates (for dev/test only) */
@@ -64,54 +96,68 @@ export class AmbassadorClient {
   private toolCatalogCache: CachedCatalog | null = null;
   private isRunning = false;
 
+  // Session state (ephemeral - never persisted to disk)
+  private sessionId: string | null = null;
+  private sessionToken: string | null = null;
+  private connectionId: string | null = null;
+  private expiresAt: string | null = null;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private isReregistering = false;
+
   constructor(private config: ClientConfig) {
+    // Validate required fields
+    if (!config.preshared_key) {
+      throw new Error('preshared_key is required');
+    }
+
     // Set defaults
+    this.config.friendly_name = config.friendly_name || hostname();
+    this.config.host_tool = config.host_tool || 'vscode';
+    this.config.heartbeat_interval_seconds = config.heartbeat_interval_seconds || 60;
     this.config.cache_ttl_seconds = config.cache_ttl_seconds || 300;
     this.config.allow_self_signed = config.allow_self_signed ?? false;
   }
 
   /**
-   * Register with Ambassador Server
+   * Register with Ambassador Server to obtain ephemeral session
    *
-   * @returns Registration response with client_id and api_key
+   * @returns Registration response with session credentials
    */
   async register(): Promise<RegistrationResponse> {
-    // If already registered, return cached credentials
-    if (this.config.client_id && this.config.api_key) {
-      console.info('[client] Using existing credentials');
-      return {
-        client_id: this.config.client_id,
-        profile_id: 'unknown',
-        profile_name: 'unknown',
-        status: 'active',
-      };
-    }
+    // Stop any existing heartbeat timer
+    this.stopHeartbeat();
 
-    console.info('[client] Registering with Ambassador Server...');
+    // Security: Mask preshared key in logs
+    const maskedKey = maskSecret(this.config.preshared_key);
+    console.info(`[client] Registering with preshared key: ${maskedKey}`);
 
     const request: RegistrationRequest = {
-      friendly_name: this.config.friendly_name,
-      host_tool: this.config.host_tool as any,
-      machine_fingerprint: this.generateMachineFingerprint(),
+      preshared_key: this.config.preshared_key,
+      friendly_name: this.config.friendly_name!,
+      host_tool: this.config.host_tool! as any,
     };
 
     try {
       const response = await this.httpRequest<RegistrationResponse>(
         'POST',
-        '/v1/clients/register',
+        '/v1/sessions/register',
         request,
         false // No auth for registration
       );
 
-      // Store credentials
-      this.config.client_id = response.client_id;
-      this.config.api_key = response.api_key;
+      // Store ephemeral session credentials (memory only)
+      this.sessionId = response.session_id;
+      this.sessionToken = response.session_token;
+      this.connectionId = response.connection_id;
+      this.expiresAt = response.expires_at;
 
-      console.info(`[client] Registration successful: ${response.client_id}`);
-      console.info(`[client] Profile: ${response.profile_name}`);
+      console.info(`[client] Session registered: ${response.session_id}`);
+      console.info(`[client] Connection ID: ${response.connection_id}`);
+      console.info(`[client] Profile ID: ${response.profile_id}`);
+      console.info(`[client] Expires at: ${response.expires_at}`);
 
-      // TODO: Store credentials persistently (OS keychain)
-      // For M6.6, just keep in memory
+      // Start heartbeat timer
+      this.startHeartbeat();
 
       return response;
     } catch (error) {
@@ -263,6 +309,7 @@ export class AmbassadorClient {
 
   /**
    * Stop MCP server gracefully
+   * Finding 2: Use Promise.race to avoid blocking on disconnect
    */
   async stop(): Promise<void> {
     if (!this.isRunning) {
@@ -272,8 +319,86 @@ export class AmbassadorClient {
     console.info('[client] Stopping MCP server...');
     this.isRunning = false;
 
-    // No persistent connections to clean up in stdio mode
+    // Stop heartbeat timer
+    this.stopHeartbeat();
+
+    // Best-effort disconnect: inform server this connection is closing.
+    // Finding 2: Race with timeout to handle tight shutdown scenarios
+    if (this.connectionId) {
+      try {
+        let timeoutHandle: NodeJS.Timeout | undefined;
+        const timeoutPromise = new Promise<void>(resolve => {
+          timeoutHandle = setTimeout(resolve, 2000);
+        });
+
+        await Promise.race([
+          this.sendDisconnect(),
+          timeoutPromise,
+        ]);
+
+        // Clear the timeout to prevent dangling timer
+        if (timeoutHandle !== undefined) {
+          clearTimeout(timeoutHandle);
+        }
+
+        console.info('[client] Sent disconnect to server (best-effort)');
+      } catch (e) {
+        console.warn('[client] Disconnect attempt failed (ignored)');
+      }
+    }
+
+    // Clear session state after attempting disconnect
+    this.sessionId = null;
+    this.sessionToken = null;
+    this.connectionId = null;
+    this.expiresAt = null;
+
+    // Reference fields to satisfy strict type-checkers for intentionally-kept fields
+    void this.sessionId;
+    void this.expiresAt;
+
     console.info('[client] MCP server stopped');
+  }
+
+  /**
+   * Send disconnect request to server
+   * Finding 2: Extracted for use with Promise.race in stop()
+   */
+  private sendDisconnect(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const url = new URL(this.config.server_url);
+      const disconnectPath = `/v1/sessions/connections/${this.connectionId}`;
+
+      const options: https.RequestOptions = {
+        hostname: url.hostname,
+        port: url.port || 8443,
+        path: disconnectPath,
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': this.sessionToken || '',
+        },
+        rejectUnauthorized: !this.config.allow_self_signed,
+      };
+
+      const req = https.request(options, (res: IncomingMessage) => {
+        // Drain response and resolve when finished
+        res.on('data', () => {});
+        res.on('end', () => resolve());
+      });
+
+      req.on('error', () => resolve());
+      req.setTimeout(2000, () => {
+        try {
+          req.destroy();
+        } catch (e) {
+          // ignore
+        }
+        resolve();
+      });
+
+      req.end();
+    });
   }
 
   /**
@@ -418,7 +543,8 @@ export class AmbassadorClient {
     method: string,
     path: string,
     body?: any,
-    authenticated = true
+    authenticated = true,
+    retryOn401 = true
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const url = new URL(this.config.server_url);
@@ -434,12 +560,9 @@ export class AmbassadorClient {
         rejectUnauthorized: !this.config.allow_self_signed,
       };
 
-      // Add authentication headers
-      if (authenticated && this.config.api_key) {
-        (options.headers as Record<string, string>)['X-API-Key'] = this.config.api_key;
-      }
-      if (authenticated && this.config.client_id) {
-        (options.headers as Record<string, string>)['X-Client-Id'] = this.config.client_id;
+      // Add session token for authenticated requests
+      if (authenticated && this.sessionToken) {
+        (options.headers as Record<string, string>)['X-Session-Token'] = this.sessionToken;
       }
 
       const req = https.request(options, (res: IncomingMessage) => {
@@ -466,8 +589,64 @@ export class AmbassadorClient {
             } catch (error) {
               reject(new Error(`Invalid JSON response: ${error}`));
             }
+          } else if (res.statusCode === 401 && retryOn401 && !this.isReregistering) {
+            // Finding 1: Parse structured error response
+            let serverErrorCode = 'unknown';
+            let serverErrorMessage = 'Authentication failed';
+            try {
+              const parsed = JSON.parse(data);
+              serverErrorCode = parsed?.error || 'unknown';
+              serverErrorMessage = parsed?.message || data;
+            } catch (e) {
+              // Parse failed, use raw data
+              serverErrorMessage = data || 'Authentication failed';
+            }
+
+            const wasSuspended = serverErrorCode === 'session_suspended';
+            const wasExpired = serverErrorCode === 'session_expired';
+
+            if (wasSuspended) {
+              console.error('[client] Session suspended. Reconnecting... MCP instances restarting.');
+            } else if (wasExpired) {
+              console.error('[client] Session expired, re-registering...');
+            } else {
+              console.error(`[client] Session authentication failure: ${serverErrorMessage}. Re-registering...`);
+            }
+
+            this.isReregistering = true;
+
+            this.register()
+              .then(() => {
+                if (wasSuspended) {
+                  console.error('[client] Reconnected successfully.');
+                } else {
+                  console.info('[client] Re-registration successful, retrying request');
+                }
+
+                // Retry original request with new session token
+                return this.httpRequest<T>(method, path, body, authenticated, false);
+              })
+              .then(result => {
+                this.isReregistering = false;
+                resolve(result);
+              })
+              .catch(err => {
+                this.isReregistering = false;
+                console.error(`[client] Failed to reconnect: ${err.message}. Please check your preshared key.`);
+                reject(new Error(`Re-registration failed: ${err.message}`));
+              });
           } else {
-            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+            // Finding 1: Create HttpError with structured error information
+            let errorCode = 'unknown';
+            let errorMessage = data;
+            try {
+              const parsed = JSON.parse(data);
+              errorCode = parsed?.error || 'unknown';
+              errorMessage = parsed?.message || data;
+            } catch (e) {
+              // Use raw data if parse fails
+            }
+            reject(new HttpError(res.statusCode || 500, errorCode, errorMessage, data));
           }
         });
       });
@@ -485,13 +664,71 @@ export class AmbassadorClient {
   }
 
   /**
-   * Generate machine fingerprint for registration
+   * Start heartbeat timer
+   * Finding 4: Already correctly clears existing timer first
    */
-  private generateMachineFingerprint(): string {
-    // Simple implementation: hostname + platform + arch
-    const platform = process.platform;
-    const arch = process.arch;
+  private startHeartbeat(): void {
+    this.stopHeartbeat(); // Clear any existing timer first
 
-    return `${hostname()}-${platform}-${arch}`;
+
+    const intervalMs = this.config.heartbeat_interval_seconds! * 1000;
+
+    this.heartbeatTimer = setInterval(() => {
+      this.sendHeartbeat().catch(err => {
+        console.error('[client] Heartbeat failed:', err);
+      });
+    }, intervalMs);
+
+    console.info(`[client] Heartbeat started (interval: ${this.config.heartbeat_interval_seconds}s)`);
+  }
+
+  /**
+   * Stop heartbeat timer
+   * Finding 4: Extracted for reuse
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  /**
+   * Send heartbeat to server
+   * Finding 5: Use HttpError instead of string matching
+   */
+  private async sendHeartbeat(): Promise<void> {
+    if (!this.sessionToken) {
+      console.warn('[client] No session token, skipping heartbeat');
+      return;
+    }
+
+    try {
+      await this.httpRequest<{ status: string }>(
+        'POST',
+        '/v1/sessions/heartbeat',
+        {},
+        true,
+        false // Don't retry on 401 for heartbeat - let it fail and re-register on next regular request
+      );
+      console.debug('[client] Heartbeat sent successfully');
+    } catch (error: any) {
+      // Finding 5: Check HTTP status codes directly using HttpError
+      if (error instanceof HttpError) {
+        // 429 = rate limited, normal - silently skip
+        if (error.statusCode === 429) {
+          console.debug('[client] Heartbeat rate limited, skipping');
+          return;
+        }
+
+        // 401 = session expired, will re-register on next tool call
+        if (error.statusCode === 401) {
+          console.warn('[client] Heartbeat returned 401, session likely expired');
+          return;
+        }
+      }
+
+      throw error;
+    }
   }
 }

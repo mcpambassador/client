@@ -4,155 +4,108 @@ Lightweight HTTP/MCP proxy for developer workstations.
 
 ## Overview
 
-The Ambassador Client is a **thin proxy** that runs on developer machines and connects them to the Ambassador Server. It:
+The Ambassador Client is a thin proxy that runs on developer machines and connects them to the Ambassador Server. Main responsibilities:
 
-1. **Registers** with the Ambassador Server and receives credentials
-2. **Fetches** the tool catalog from the server (cached locally)
-3. **Implements** the MCP protocol for host apps (VS Code, Claude Desktop, etc.)
-4. **Relays** tool calls from the host app to the Ambassador Server
+- Register with the Ambassador Server using a preshared key (ephemeral sessions)
+- Fetch and cache the tool catalog
+- Implement the MCP protocol for host apps (VS Code, Claude Desktop, etc.)
+- Relay tool calls from the host app to the Ambassador Server
 
-## Installation
+## New Configuration Format
 
-```bash
-# Install globally from npm
-npm install -g @mcpambassador/client
+The client now uses a JSON configuration format. Example:
 
-# Or run with npx (zero install)
-npx @mcpambassador/client --server https://ambassador.internal:8443
-
-# Or download binary from GitHub releases
-curl -L https://github.com/mcpambassador/releases/latest/download/mcpambassador-client-linux -o mcpambassador-client
-chmod +x mcpambassador-client
+```json
+{
+  "server_url": "https://ambassador.internal:8443",
+  "preshared_key": "amb_pk_...",
+  "friendly_name": "my-workstation",
+  "host_tool": "vscode",
+  "heartbeat_interval_seconds": 60,
+  "allow_self_signed": true
+}
 ```
 
-## Usage
+Notes:
+- `preshared_key` is required and replaces the old API key model.
+- `friendly_name` defaults to the system hostname when omitted.
+- `host_tool` identifies the host integration (e.g., `vscode`).
 
-### Command Line
+## Environment Variables
 
-```bash
-# Start client with server URL
-mcpambassador-client --server https://ambassador.internal:8443
+- `MCP_AMBASSADOR_PRESHARED_KEY` — preshared key (required if not using a config file)
+- `MCP_AMBASSADOR_URL` — server URL (alternative to `--server`)
+- `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` — set to `true` to allow self-signed certs (dev only)
+- `MCP_AMBASSADOR_HOST_TOOL` — host tool identifier (defaults to `vscode`)
+- `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` — heartbeat interval in seconds (default: 60)
 
-# Start with configuration file
-mcpambassador-client --config ./config.yaml
+## CLI Usage
+
+```
+mcpambassador-client --server <url>
+mcpambassador-client --config <path-to-json>
+
+Options:
+  --server <url>               Ambassador Server URL (e.g., https:// https://ambassador.internal:8443)
+  --config <path>              Path to JSON config file
+  --allow-self-signed          Allow self-signed TLS certificates (dev/test only)
+  --heartbeat-interval <sec>   Heartbeat interval in seconds (default: 60)
+  --help, -h                   Show help
 ```
 
-### Configuration File
+Environment variable `MCP_AMBASSADOR_PRESHARED_KEY` is used when not running with a config file.
 
-```yaml
-# config.yaml
-server_url: https://ambassador.internal:8443
-friendly_name: my-laptop
-host_tool: vscode
-cache_ttl_seconds: 300
-```
+## Heartbeat Behavior
 
-### Host App Configuration
+- The client sends an automatic heartbeat to the server to keep ephemeral sessions active.
+- Default interval is 60 seconds and is configurable via `heartbeat_interval_seconds` in the config file or `--heartbeat-interval` / `MCP_AMBASSADOR_HEARTBEAT_INTERVAL`.
+- Heartbeats are best-effort and rate-limited by the server.
 
-**VS Code (`settings.json`):**
+## Session Lifecycle
+
+- Sessions are ephemeral and stored in memory only.
+- If the server returns a 401 with `session_expired`, the client will automatically re-register using the preshared key and retry the failed request.
+  - User-facing message on expiry: `[client] Session expired, re-registering...` (emitted to stderr)
+- If the server returns a 401 with `session_suspended`, the client will attempt to re-register and the host app will see a clear message while MCP instances are restarted.
+  - User-facing message on suspension: `[client] Session suspended. Reconnecting... MCP instances restarting.` (emitted to stderr)
+- If re-registration after suspension succeeds: `[client] Reconnected successfully.` (emitted to stderr)
+- If re-registration fails: `[client] Failed to reconnect: <error>. Please check your preshared key.` (emitted to stderr)
+
+## Graceful Shutdown
+
+- On SIGINT/SIGTERM the client performs a best-effort disconnect by sending `DELETE /v1/sessions/connections/{connection_id}` to the server.
+- The disconnect uses a short timeout (2 seconds) and never blocks shutdown if the server is unreachable.
+
+## VS Code MCP Configuration Example
+
+Add a server entry to your VS Code `settings.json` to launch the Ambassador Client as a local MCP provider:
 
 ```json
 {
   "mcpServers": {
     "ambassador": {
       "command": "mcpambassador-client",
-      "args": ["--server", "https://ambassador.internal:8443"]
+      "args": ["--config", "/path/to/amb-client-config.json"]
     }
   }
 }
 ```
 
-**Claude Desktop (`claude_desktop_config.json`):**
-
-```json
-{
-  "mcpServers": {
-    "ambassador": {
-      "command": "mcpambassador-client",
-      "args": ["--server", "https://ambassador.internal:8443"]
-    }
-  }
-}
-```
+Or start directly with server URL and preshared key via environment variables.
 
 ## Development
 
 ```bash
 # Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run tests
-npm test
-
-# Lint
-npm run lint
-
-# Format
-npm run format
+pnpm install
 
 # Type check
-npm run typecheck
+pnpm typecheck
+
+# Run tests
+pnpm test
 ```
-
-## Architecture
-
-```
-┌─────────────────┐       ┌────────────────────┐       ┌──────────────┐
-│  Host App       │       │  Ambassador Client │       │  Ambassador  │
-│  (VS Code,      │◄─────►│  (this package)    │◄─────►│  Server      │
-│   Claude, etc.) │  MCP  │  Thin HTTP/MCP     │ HTTPS │              │
-└─────────────────┘       │  proxy             │       └──────────────┘
-                          └────────────────────┘
-```
-
-**Key behaviors:**
-
-- **Stateless:** No persistent state (except cached credentials)
-- **Fail closed:** No offline mode — if server is unreachable, tools are unavailable
-- **Per-session cache:** Tool catalog cached in memory for 5 minutes (default)
-- **Automatic retry:** Exponential backoff on server connection failures
-
-## Features
-
-| Feature | Status | Phase |
-|---|---|---|
-| Client registration | Placeholder (M6) | 1 |
-| Tool catalog fetch | Placeholder (M6) | 1 |
-| Tool invocation | Placeholder (M6) | 1 |
-| MCP server impl | Placeholder (M6) | 1 |
-| SSE push (kill switch) | Not implemented | 2 |
-| Binary packaging | Not implemented | 2 |
-
-## Protocol
-
-This client depends on `@mcpambassador/protocol` for type definitions:
-
-```typescript
-import type {
-  RegistrationRequest,
-  ToolCatalogResponse,
-  ToolInvocationRequest,
-} from '@mcpambassador/protocol';
-```
-
-The protocol package is versioned independently. Breaking changes require coordinated client + server releases.
-
-## Security
-
-- **TLS required:** Client rejects non-HTTPS connections (except `localhost` for dev)
-- **TOFU:** Trust-on-first-use for self-signed certificates (user confirmation required)
-- **Credentials storage:** API keys stored in OS keychain (Linux: keyring, macOS: Keychain, Windows: Credential Manager)
 
 ## License
 
 MIT
-
-## Documentation
-
-See the `mcpambassador_docs` repository for:
-- Architecture (`architecture.md`)
-- Development plan (`../mcpambassador_docs/dev-plan.md`)
-- Client resilience (`architecture.md` §17)

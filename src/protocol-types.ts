@@ -16,22 +16,18 @@ export type HostTool =
   | 'chatgpt'
   | 'custom';
 
-export type ClientStatus = 'active' | 'suspended' | 'revoked';
-
 export interface RegistrationRequest {
+  preshared_key: string;
   friendly_name: string;
   host_tool: HostTool;
-  machine_fingerprint?: string;
-  auth_method?: string;
 }
 
 export interface RegistrationResponse {
-  client_id: string;
-  api_key?: string;
-  jwt_token?: string;
+  session_id: string;
+  session_token: string;
+  expires_at: string;
   profile_id: string;
-  profile_name: string;
-  status: ClientStatus;
+  connection_id: string;
 }
 
 export interface ToolCatalogResponse {
