@@ -12,6 +12,7 @@
 
 import https from 'https';
 import { IncomingMessage } from 'http';
+import { hostname } from 'os';
 import type {
   RegistrationRequest,
   RegistrationResponse,
@@ -485,7 +486,6 @@ export class AmbassadorClient {
    */
   private generateMachineFingerprint(): string {
     // Simple implementation: hostname + platform + arch
-    const { hostname } = require('os');
     const platform = process.platform;
     const arch = process.arch;
 
