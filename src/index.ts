@@ -41,6 +41,7 @@ class HttpError extends Error {
 /**
  * Mask sensitive secrets in logs
  * Finding 3: Never log session tokens or preshared keys
+ * SEC-M16-F3: Reduced fallback exposure from 11 to 4 characters
  */
 function maskSecret(value: string): string {
   if (value.startsWith('amb_pk_')) {
@@ -50,8 +51,11 @@ function maskSecret(value: string): string {
     // Session token: show prefix only
     return 'amb_st_****';
   }
-  // Fallback: show first 11 chars + mask
-  return `${value.slice(0, 11)}****`;
+  // SEC-M16-F3: Fallback for non-prefixed secrets - show at most 4 chars (first 2 + last 2)
+  if (value.length <= 4) {
+    return '****';
+  }
+  return `${value.slice(0, 2)}...${value.slice(-2)}`;
 }
 
 /**
@@ -110,10 +114,51 @@ export class AmbassadorClient {
       throw new Error('preshared_key is required');
     }
 
+    // SEC-M16-F2: Validate server_url scheme (require HTTPS except for localhost)
+    try {
+      const url = new URL(config.server_url);
+      const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+      
+      if (url.protocol === 'http:' && !isLocalhost) {
+        console.warn(
+          `[client] WARNING: Using insecure HTTP for non-localhost URL (${config.server_url}). ` +
+          `HTTPS is strongly recommended for production environments.`
+        );
+      } else if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+        throw new Error(`Invalid URL scheme: ${url.protocol}. Only 'https:' (or 'http:' for localhost) is allowed.`);
+      }
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(`Invalid server_url: ${config.server_url}`);
+      }
+      throw error;
+    }
+
     // Set defaults
     this.config.friendly_name = config.friendly_name || hostname();
     this.config.host_tool = config.host_tool || 'vscode';
-    this.config.heartbeat_interval_seconds = config.heartbeat_interval_seconds || 60;
+    
+    // SEC-M16-F4: Bound heartbeat_interval_seconds (min: 5s, max: 300s)
+    const MIN_HEARTBEAT = 5;
+    const MAX_HEARTBEAT = 300;
+    const DEFAULT_HEARTBEAT = 60;
+    let heartbeat = config.heartbeat_interval_seconds ?? DEFAULT_HEARTBEAT;
+    
+    if (heartbeat < MIN_HEARTBEAT) {
+      console.warn(
+        `[client] heartbeat_interval_seconds (${heartbeat}s) is below minimum (${MIN_HEARTBEAT}s). ` +
+        `Clamping to ${MIN_HEARTBEAT}s.`
+      );
+      heartbeat = MIN_HEARTBEAT;
+    } else if (heartbeat > MAX_HEARTBEAT) {
+      console.warn(
+        `[client] heartbeat_interval_seconds (${heartbeat}s) exceeds maximum (${MAX_HEARTBEAT}s). ` +
+        `Clamping to ${MAX_HEARTBEAT}s.`
+      );
+      heartbeat = MAX_HEARTBEAT;
+    }
+    this.config.heartbeat_interval_seconds = heartbeat;
+    
     this.config.cache_ttl_seconds = config.cache_ttl_seconds || 300;
     this.config.allow_self_signed = config.allow_self_signed ?? false;
   }
