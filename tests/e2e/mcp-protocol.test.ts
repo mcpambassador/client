@@ -114,7 +114,7 @@ class McpTestClient {
   }
 }
 
-describe('MCP protocol E2E @e2e', () => {
+describe.skipIf(!process.env.E2E)('MCP protocol E2E @e2e', () => {
   it('runs the MCP protocol scenarios sequentially', async () => {
     const client = new McpTestClient(__dirname + '/../../');
 
@@ -197,7 +197,7 @@ describe('MCP protocol E2E @e2e', () => {
   }, 60000);
 });
 
-describe('Real tool invocation smoke tests @e2e', () => {
+describe.skipIf(!process.env.E2E)('Real tool invocation smoke tests @e2e', () => {
   let client: McpTestClient;
 
   beforeAll(async () => {
