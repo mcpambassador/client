@@ -165,7 +165,11 @@ export class AmbassadorClient {
     // Use nullish coalescing so 0 is respected (cache disable use-case)
     const cacheTtl = config.cache_ttl_seconds ?? 60;
     this.config.cache_ttl_seconds = Math.max(0, cacheTtl);
-    this.config.disable_cache = config.disable_cache ?? false;
+    // Default to no client-side catalog cache unless explicitly configured.
+    // This avoids stale catalogs across host/client restarts and keeps behavior aligned
+    // with current server session/subscription state.
+    const hasExplicitTtl = config.cache_ttl_seconds !== undefined;
+    this.config.disable_cache = config.disable_cache ?? !hasExplicitTtl;
     this.config.allow_self_signed = config.allow_self_signed ?? false;
   }
 

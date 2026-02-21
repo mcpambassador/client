@@ -98,6 +98,7 @@ Environment Variables:
   MCP_AMBASSADOR_HOST_TOOL            Host tool identifier (default: vscode)
   MCP_AMBASSADOR_HEARTBEAT_INTERVAL   Heartbeat interval in seconds (default: 60)
   MCP_AMBASSADOR_CACHE_TTL            Tool catalog cache TTL in seconds (default: 60)
+  MCP_AMBASSADOR_DISABLE_CACHE         Disable client tool cache (true/false)
   HOSTNAME                            Used as friendly_name if not specified
   
 Config File Format (JSON):
@@ -134,6 +135,9 @@ async function main(): Promise<void> {
     (process.env.MCP_AMBASSADOR_HEARTBEAT_INTERVAL ? parseInt(process.env.MCP_AMBASSADOR_HEARTBEAT_INTERVAL, 10) : undefined);
   const cacheTtl = argCacheTtl ||
     (process.env.MCP_AMBASSADOR_CACHE_TTL ? parseInt(process.env.MCP_AMBASSADOR_CACHE_TTL, 10) : undefined);
+  const disableCache = process.env.MCP_AMBASSADOR_DISABLE_CACHE !== undefined
+    ? process.env.MCP_AMBASSADOR_DISABLE_CACHE === 'true'
+    : undefined;
 
   if (!serverUrl && !configPath) {
     console.error('Error: Either --server or --config must be provided');
@@ -168,7 +172,7 @@ async function main(): Promise<void> {
       allow_self_signed: allowSelfSigned,
       heartbeat_interval_seconds: heartbeatInterval,
       cache_ttl_seconds: cacheTtl,
-      disable_cache: process.env.MCP_AMBASSADOR_DISABLE_CACHE === 'true',
+      disable_cache: disableCache,
     };
   }
 
