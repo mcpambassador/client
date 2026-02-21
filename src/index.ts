@@ -74,6 +74,8 @@ export interface ClientConfig {
   heartbeat_interval_seconds?: number;
   /** Tool catalog cache TTL in seconds (default: 300) */
   cache_ttl_seconds?: number;
+  /** Disable in-memory tool catalog cache entirely */
+  disable_cache?: boolean;
   /** Allow self-signed certificates (for dev/test only) */
   allow_self_signed?: boolean;
 }
@@ -160,7 +162,10 @@ export class AmbassadorClient {
     this.config.heartbeat_interval_seconds = heartbeat;
     
     // Reduce cache TTL from 300s to 60s for faster subscription change propagation
-    this.config.cache_ttl_seconds = config.cache_ttl_seconds || 60;
+    // Use nullish coalescing so 0 is respected (cache disable use-case)
+    const cacheTtl = config.cache_ttl_seconds ?? 60;
+    this.config.cache_ttl_seconds = Math.max(0, cacheTtl);
+    this.config.disable_cache = config.disable_cache ?? false;
     this.config.allow_self_signed = config.allow_self_signed ?? false;
   }
 
@@ -197,6 +202,10 @@ export class AmbassadorClient {
       this.connectionId = response.connection_id;
       this.expiresAt = response.expires_at;
 
+      // Invalidate cached catalog on (re)registration to avoid stale tools
+      // when server-side subscriptions/profile bindings changed.
+      this.toolCatalogCache = null;
+
       console.info(`[client] Session registered: ${response.session_id}`);
       console.info(`[client] Connection ID: ${response.connection_id}`);
       console.info(`[client] Profile ID: ${response.profile_id}`);
@@ -218,8 +227,10 @@ export class AmbassadorClient {
    * @returns Tool catalog (cached for cache_ttl_seconds)
    */
   async getToolCatalog(): Promise<ToolCatalogResponse> {
+    const cachingDisabled = this.config.disable_cache || this.config.cache_ttl_seconds === 0;
+
     // Check cache
-    if (this.toolCatalogCache) {
+    if (!cachingDisabled && this.toolCatalogCache) {
       const age = Date.now() - this.toolCatalogCache.cached_at;
       if (age < this.toolCatalogCache.ttl_seconds * 1000) {
         console.debug(`[client] Using cached tool catalog (age: ${Math.floor(age / 1000)}s)`);
@@ -236,12 +247,14 @@ export class AmbassadorClient {
     try {
       const response = await this.httpRequest<ToolCatalogResponse>('GET', '/v1/tools');
 
-      // Update cache
-      this.toolCatalogCache = {
-        tools: response.tools,
-        cached_at: Date.now(),
-        ttl_seconds: this.config.cache_ttl_seconds!,
-      };
+      // Update cache (unless explicitly disabled)
+      if (!cachingDisabled) {
+        this.toolCatalogCache = {
+          tools: response.tools,
+          cached_at: Date.now(),
+          ttl_seconds: this.config.cache_ttl_seconds!,
+        };
+      }
 
       console.info(`[client] Fetched ${response.tools.length} tools`);
 

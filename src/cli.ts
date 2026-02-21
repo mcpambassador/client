@@ -13,6 +13,26 @@
 import { readFileSync } from 'fs';
 import { AmbassadorClient, type ClientConfig } from './index.js';
 
+function configureStderrLogging(): void {
+  const write = (level: string, args: unknown[]) => {
+    const rendered = args
+      .map(arg => (typeof arg === 'string' ? arg : (() => {
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return String(arg);
+        }
+      })()))
+      .join(' ');
+    process.stderr.write(`[${level}] ${rendered}\n`);
+  };
+
+  console.log = (...args: unknown[]) => write('info', args);
+  console.info = (...args: unknown[]) => write('info', args);
+  console.warn = (...args: unknown[]) => write('warn', args);
+  console.debug = (...args: unknown[]) => write('debug', args);
+}
+
 function parseArgs(): { serverUrl?: string; configPath?: string; allowSelfSigned?: boolean; heartbeatInterval?: number; cacheTtl?: number } {
   const args = process.argv.slice(2);
 
@@ -100,6 +120,10 @@ Example:
 }
 
 async function main(): Promise<void> {
+  // MCP stdio requires stdout to carry only protocol frames.
+  // Route all operational logs to stderr.
+  configureStderrLogging();
+
   const { serverUrl: argServerUrl, configPath, allowSelfSigned: argAllowSelfSigned, heartbeatInterval: argHeartbeatInterval, cacheTtl: argCacheTtl } = parseArgs();
 
   // Fall back to environment variables if no CLI args provided
@@ -144,6 +168,7 @@ async function main(): Promise<void> {
       allow_self_signed: allowSelfSigned,
       heartbeat_interval_seconds: heartbeatInterval,
       cache_ttl_seconds: cacheTtl,
+      disable_cache: process.env.MCP_AMBASSADOR_DISABLE_CACHE === 'true',
     };
   }
 
