@@ -50,6 +50,7 @@ Options:
   --config <path>              Path to JSON config file
   --allow-self-signed          Allow self-signed TLS certificates (dev/test only)
   --heartbeat-interval <sec>   Heartbeat interval in seconds (default: 60)
+  --cache-ttl <sec>            Tool catalog cache TTL in seconds (default: 60)
   --help, -h                   Show help
 ```
 
@@ -92,6 +93,48 @@ Add a server entry to your VS Code `settings.json` to launch the Ambassador Clie
 ```
 
 Or start directly with server URL and preshared key via environment variables.
+
+### VS Code (stdio) launcher example
+
+If you launch the client directly with a Node binary (local, unpublished build) you can keep the same `command`/`args`/`env` shape you already use in your VS Code `mcp.json` / `settings.json`. Example (your local setup):
+
+```json
+"mcpambassador-local": {
+  "type": "stdio",
+  "command": "/home/zervin/.nvm/versions/node/v24.13.1/bin/node",
+  "args": [
+    "/home/zervin/projects/abs/mcpambassador_client/dist/cli.js",
+    "--config",
+    "/home/zervin/.config/amb-client-config.json"
+  ],
+  "env": {
+    "MCP_AMBASSADOR_URL": "https://localhost:8443",
+    "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_REDACTED_SEE_F001",
+    "MCP_AMBASSADOR_ALLOW_SELF_SIGNED": "true"
+  }
+}
+```
+
+Notes:
+- The client will read the JSON config file passed with `--config` and/or fall back to the environment variables shown above.
+- Using the VS Code `env` block is convenient for local development, but consider using a config file (example below) to keep secrets out of editor settings.
+
+### Example `amb-client-config.json`
+
+Create a small JSON config file and point the client to it with `--config`:
+
+```json
+{
+  "server_url": "https://localhost:8443",
+  "preshared_key": "amb_pk_REDACTED_SEE_F001",
+  "friendly_name": "zervin-workstation",
+  "host_tool": "vscode",
+  "heartbeat_interval_seconds": 60,
+  "allow_self_signed": true
+}
+```
+
+Then launch via your VS Code launcher or directly with Node/CLI as shown above.
 
 ## Development
 

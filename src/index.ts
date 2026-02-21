@@ -159,7 +159,8 @@ export class AmbassadorClient {
     }
     this.config.heartbeat_interval_seconds = heartbeat;
     
-    this.config.cache_ttl_seconds = config.cache_ttl_seconds || 300;
+    // Reduce cache TTL from 300s to 60s for faster subscription change propagation
+    this.config.cache_ttl_seconds = config.cache_ttl_seconds || 60;
     this.config.allow_self_signed = config.allow_self_signed ?? false;
   }
 
