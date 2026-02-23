@@ -113,7 +113,6 @@ describe('M16 Security Fixes', () => {
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('below minimum');
       expect(consoleWarnSpy[0]).toContain('Clamping to 5s');
-      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(5);
     });
 
@@ -127,7 +126,6 @@ describe('M16 Security Fixes', () => {
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('exceeds maximum');
       expect(consoleWarnSpy[0]).toContain('Clamping to 300s');
-      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(300);
     });
 
@@ -139,7 +137,6 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(60);
     });
 
@@ -150,7 +147,6 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(60);
     });
 
@@ -162,7 +158,6 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(5);
     });
 
@@ -174,7 +169,6 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(300);
     });
 
@@ -187,7 +181,6 @@ describe('M16 Security Fixes', () => {
 
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('below minimum');
-      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(5);
     });
   });

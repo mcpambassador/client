@@ -81,7 +81,7 @@ describe('AmbassadorClient', () => {
         }),
       };
 
-      vi.mocked(https.request).mockImplementation((options: any, callback?: any) => {
+      vi.mocked(https.request).mockImplementation((_options: any, callback?: any) => {
         if (callback) {
           callback(mockRes as any);
         }
@@ -98,12 +98,8 @@ describe('AmbassadorClient', () => {
       const response = await client.register();
 
       expect(response).toEqual(mockResponse);
-      expect(mockReq.write).toHaveBeenCalledWith(
-        expect.stringContaining('amb_pk_test1234567890')
-      );
-      expect(mockReq.write).toHaveBeenCalledWith(
-        expect.stringContaining('test-client')
-      );
+      expect(mockReq.write).toHaveBeenCalledWith(expect.stringContaining('amb_pk_test1234567890'));
+      expect(mockReq.write).toHaveBeenCalledWith(expect.stringContaining('test-client'));
     });
 
     it('should mask preshared key in logs', async () => {
@@ -135,7 +131,7 @@ describe('AmbassadorClient', () => {
         }),
       };
 
-      vi.mocked(https.request).mockImplementation((options: any, callback?: any) => {
+      vi.mocked(https.request).mockImplementation((_options: any, callback?: any) => {
         if (callback) {
           callback(mockRes as any);
         }
@@ -191,9 +187,10 @@ describe('AmbassadorClient', () => {
           statusCode: 200,
           on: vi.fn((event, handler) => {
             if (event === 'data') {
-              const response = (options as any).path === '/v1/sessions/register'
-                ? mockRegResponse
-                : mockCatalogResponse;
+              const response =
+                (options as any).path === '/v1/sessions/register'
+                  ? mockRegResponse
+                  : mockCatalogResponse;
               handler(Buffer.from(JSON.stringify(response)));
             } else if (event === 'end') {
               handler();
@@ -294,12 +291,14 @@ describe('AmbassadorClient', () => {
         }),
       };
 
-      vi.mocked(https.request).mockReturnValue(mockReq as any).mockImplementation((options: any, callback?: any) => {
-        if (callback) {
-          callback(mockRes as any);
-        }
-        return mockReq as any;
-      });
+      vi.mocked(https.request)
+        .mockReturnValue(mockReq as any)
+        .mockImplementation((_options: any, callback?: any) => {
+          if (callback) {
+            callback(mockRes as any);
+          }
+          return mockReq as any;
+        });
 
       const client = new AmbassadorClient({
         server_url: 'https://ambassador.internal:8443',
@@ -340,7 +339,7 @@ describe('AmbassadorClient', () => {
         }),
       };
 
-      vi.mocked(https.request).mockImplementation((options: any, callback?: any) => {
+      vi.mocked(https.request).mockImplementation((_options: any, callback?: any) => {
         if (callback) {
           callback(mockRes as any);
         }
@@ -416,9 +415,7 @@ describe('AmbassadorClient', () => {
       await vi.advanceTimersByTimeAsync(1000);
 
       // Should log debug message, not error
-      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining('Heartbeat failed')
-      );
+      expect(consoleErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining('Heartbeat failed'));
 
       consoleSpy.mockRestore();
       consoleErrorSpy.mockRestore();
@@ -604,7 +601,8 @@ describe('AmbassadorClient', () => {
           statusCode: 200,
           on: vi.fn((event, handler) => {
             if (event === 'data') {
-              const response = path === '/v1/sessions/register' ? mockRegResponse : mockCatalogResponse;
+              const response =
+                path === '/v1/sessions/register' ? mockRegResponse : mockCatalogResponse;
               handler(Buffer.from(JSON.stringify(response)));
             } else if (event === 'end') {
               handler();

@@ -16,13 +16,17 @@ import { AmbassadorClient, type ClientConfig } from './index.js';
 function configureStderrLogging(): void {
   const write = (level: string, args: unknown[]) => {
     const rendered = args
-      .map(arg => (typeof arg === 'string' ? arg : (() => {
-        try {
-          return JSON.stringify(arg);
-        } catch {
-          return String(arg);
-        }
-      })()))
+      .map(arg =>
+        typeof arg === 'string'
+          ? arg
+          : (() => {
+              try {
+                return JSON.stringify(arg);
+              } catch {
+                return String(arg);
+              }
+            })()
+      )
       .join(' ');
     process.stderr.write(`[${level}] ${rendered}\n`);
   };
@@ -33,7 +37,13 @@ function configureStderrLogging(): void {
   console.debug = (...args: unknown[]) => write('debug', args);
 }
 
-function parseArgs(): { serverUrl?: string; configPath?: string; allowSelfSigned?: boolean; heartbeatInterval?: number; cacheTtl?: number } {
+function parseArgs(): {
+  serverUrl?: string;
+  configPath?: string;
+  allowSelfSigned?: boolean;
+  heartbeatInterval?: number;
+  cacheTtl?: number;
+} {
   const args = process.argv.slice(2);
 
   let serverUrl: string | undefined;
@@ -125,19 +135,33 @@ async function main(): Promise<void> {
   // Route all operational logs to stderr.
   configureStderrLogging();
 
-  const { serverUrl: argServerUrl, configPath, allowSelfSigned: argAllowSelfSigned, heartbeatInterval: argHeartbeatInterval, cacheTtl: argCacheTtl } = parseArgs();
+  const {
+    serverUrl: argServerUrl,
+    configPath,
+    allowSelfSigned: argAllowSelfSigned,
+    heartbeatInterval: argHeartbeatInterval,
+    cacheTtl: argCacheTtl,
+  } = parseArgs();
 
   // Fall back to environment variables if no CLI args provided
   const serverUrl = argServerUrl || process.env.MCP_AMBASSADOR_URL;
   const presharedKey = process.env.MCP_AMBASSADOR_PRESHARED_KEY;
-  const allowSelfSigned = argAllowSelfSigned || process.env.MCP_AMBASSADOR_ALLOW_SELF_SIGNED === 'true';
-  const heartbeatInterval = argHeartbeatInterval || 
-    (process.env.MCP_AMBASSADOR_HEARTBEAT_INTERVAL ? parseInt(process.env.MCP_AMBASSADOR_HEARTBEAT_INTERVAL, 10) : undefined);
-  const cacheTtl = argCacheTtl ||
-    (process.env.MCP_AMBASSADOR_CACHE_TTL ? parseInt(process.env.MCP_AMBASSADOR_CACHE_TTL, 10) : undefined);
-  const disableCache = process.env.MCP_AMBASSADOR_DISABLE_CACHE !== undefined
-    ? process.env.MCP_AMBASSADOR_DISABLE_CACHE === 'true'
-    : undefined;
+  const allowSelfSigned =
+    argAllowSelfSigned || process.env.MCP_AMBASSADOR_ALLOW_SELF_SIGNED === 'true';
+  const heartbeatInterval =
+    argHeartbeatInterval ||
+    (process.env.MCP_AMBASSADOR_HEARTBEAT_INTERVAL
+      ? parseInt(process.env.MCP_AMBASSADOR_HEARTBEAT_INTERVAL, 10)
+      : undefined);
+  const cacheTtl =
+    argCacheTtl ||
+    (process.env.MCP_AMBASSADOR_CACHE_TTL
+      ? parseInt(process.env.MCP_AMBASSADOR_CACHE_TTL, 10)
+      : undefined);
+  const disableCache =
+    process.env.MCP_AMBASSADOR_DISABLE_CACHE !== undefined
+      ? process.env.MCP_AMBASSADOR_DISABLE_CACHE === 'true'
+      : undefined;
 
   if (!serverUrl && !configPath) {
     console.error('Error: Either --server or --config must be provided');

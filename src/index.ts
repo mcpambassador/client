@@ -120,14 +120,16 @@ export class AmbassadorClient {
     try {
       const url = new URL(config.server_url);
       const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-      
+
       if (url.protocol === 'http:' && !isLocalhost) {
         console.warn(
           `[client] WARNING: Using insecure HTTP for non-localhost URL (${config.server_url}). ` +
-          `HTTPS is strongly recommended for production environments.`
+            `HTTPS is strongly recommended for production environments.`
         );
       } else if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-        throw new Error(`Invalid URL scheme: ${url.protocol}. Only 'https:' (or 'http:' for localhost) is allowed.`);
+        throw new Error(
+          `Invalid URL scheme: ${url.protocol}. Only 'https:' (or 'http:' for localhost) is allowed.`
+        );
       }
     } catch (error) {
       if (error instanceof TypeError) {
@@ -139,28 +141,28 @@ export class AmbassadorClient {
     // Set defaults
     this.config.friendly_name = config.friendly_name || hostname();
     this.config.host_tool = config.host_tool || 'vscode';
-    
+
     // SEC-M16-F4: Bound heartbeat_interval_seconds (min: 5s, max: 300s)
     const MIN_HEARTBEAT = 5;
     const MAX_HEARTBEAT = 300;
     const DEFAULT_HEARTBEAT = 60;
     let heartbeat = config.heartbeat_interval_seconds ?? DEFAULT_HEARTBEAT;
-    
+
     if (heartbeat < MIN_HEARTBEAT) {
       console.warn(
         `[client] heartbeat_interval_seconds (${heartbeat}s) is below minimum (${MIN_HEARTBEAT}s). ` +
-        `Clamping to ${MIN_HEARTBEAT}s.`
+          `Clamping to ${MIN_HEARTBEAT}s.`
       );
       heartbeat = MIN_HEARTBEAT;
     } else if (heartbeat > MAX_HEARTBEAT) {
       console.warn(
         `[client] heartbeat_interval_seconds (${heartbeat}s) exceeds maximum (${MAX_HEARTBEAT}s). ` +
-        `Clamping to ${MAX_HEARTBEAT}s.`
+          `Clamping to ${MAX_HEARTBEAT}s.`
       );
       heartbeat = MAX_HEARTBEAT;
     }
     this.config.heartbeat_interval_seconds = heartbeat;
-    
+
     // Reduce cache TTL from 300s to 60s for faster subscription change propagation
     // Use nullish coalescing so 0 is respected (cache disable use-case)
     const cacheTtl = config.cache_ttl_seconds ?? 60;
@@ -394,10 +396,7 @@ export class AmbassadorClient {
           timeoutHandle = setTimeout(resolve, 2000);
         });
 
-        await Promise.race([
-          this.sendDisconnect(),
-          timeoutPromise,
-        ]);
+        await Promise.race([this.sendDisconnect(), timeoutPromise]);
 
         // Clear the timeout to prevent dangling timer
         if (timeoutHandle !== undefined) {
@@ -428,7 +427,7 @@ export class AmbassadorClient {
    * Finding 2: Extracted for use with Promise.race in stop()
    */
   private sendDisconnect(): Promise<void> {
-    return new Promise<void>((resolve) => {
+    return new Promise<void>(resolve => {
       const url = new URL(this.config.server_url);
       const disconnectPath = `/v1/sessions/connections/${this.connectionId}`;
 
@@ -669,11 +668,15 @@ export class AmbassadorClient {
             const wasExpired = serverErrorCode === 'session_expired';
 
             if (wasSuspended) {
-              console.error('[client] Session suspended. Reconnecting... MCP instances restarting.');
+              console.error(
+                '[client] Session suspended. Reconnecting... MCP instances restarting.'
+              );
             } else if (wasExpired) {
               console.error('[client] Session expired, re-registering...');
             } else {
-              console.error(`[client] Session authentication failure: ${serverErrorMessage}. Re-registering...`);
+              console.error(
+                `[client] Session authentication failure: ${serverErrorMessage}. Re-registering...`
+              );
             }
 
             this.isReregistering = true;
@@ -695,7 +698,9 @@ export class AmbassadorClient {
               })
               .catch(err => {
                 this.isReregistering = false;
-                console.error(`[client] Failed to reconnect: ${err.message}. Please check your preshared key.`);
+                console.error(
+                  `[client] Failed to reconnect: ${err.message}. Please check your preshared key.`
+                );
                 reject(new Error(`Re-registration failed: ${err.message}`));
               });
           } else {
@@ -733,7 +738,6 @@ export class AmbassadorClient {
   private startHeartbeat(): void {
     this.stopHeartbeat(); // Clear any existing timer first
 
-
     const intervalMs = this.config.heartbeat_interval_seconds! * 1000;
 
     this.heartbeatTimer = setInterval(() => {
@@ -742,7 +746,9 @@ export class AmbassadorClient {
       });
     }, intervalMs);
 
-    console.info(`[client] Heartbeat started (interval: ${this.config.heartbeat_interval_seconds}s)`);
+    console.info(
+      `[client] Heartbeat started (interval: ${this.config.heartbeat_interval_seconds}s)`
+    );
   }
 
   /**
