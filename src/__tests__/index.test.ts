@@ -1,4 +1,5 @@
-// @ts-nocheck - Test file with mocked dependencies
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AmbassadorClient } from '../index.js';
 import https from 'https';

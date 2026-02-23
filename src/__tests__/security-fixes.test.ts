@@ -2,6 +2,7 @@
  * Security Fixes from M16 Review
  * Tests for SEC-M16-F2, SEC-M16-F3, SEC-M16-F4
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AmbassadorClient } from '../index.js';
@@ -112,7 +113,7 @@ describe('M16 Security Fixes', () => {
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('below minimum');
       expect(consoleWarnSpy[0]).toContain('Clamping to 5s');
-      // @ts-ignore - accessing private config for testing
+      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(5);
     });
 
@@ -126,7 +127,7 @@ describe('M16 Security Fixes', () => {
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('exceeds maximum');
       expect(consoleWarnSpy[0]).toContain('Clamping to 300s');
-      // @ts-ignore - accessing private config for testing
+      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(300);
     });
 
@@ -138,7 +139,7 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-ignore - accessing private config for testing
+      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(60);
     });
 
@@ -149,7 +150,7 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-ignore - accessing private config for testing
+      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(60);
     });
 
@@ -161,7 +162,7 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-ignore - accessing private config for testing
+      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(5);
     });
 
@@ -173,7 +174,7 @@ describe('M16 Security Fixes', () => {
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      // @ts-ignore - accessing private config for testing
+      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(300);
     });
 
@@ -186,7 +187,7 @@ describe('M16 Security Fixes', () => {
 
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('below minimum');
-      // @ts-ignore - accessing private config for testing
+      // @ts-expect-error - accessing private config for testing
       expect(client['config'].heartbeat_interval_seconds).toBe(5);
     });
   });
