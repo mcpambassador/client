@@ -109,7 +109,7 @@ If you launch the client directly with a Node binary (local, unpublished build) 
   ],
   "env": {
     "MCP_AMBASSADOR_URL": "https://localhost:8443",
-    "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_REDACTED_SEE_F001",
+    "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_CHANGE_ME_AFTER_REGISTRATION",
     "MCP_AMBASSADOR_ALLOW_SELF_SIGNED": "true"
   }
 }
@@ -119,20 +119,16 @@ Notes:
 - The client will read the JSON config file passed with `--config` and/or fall back to the environment variables shown above.
 - Using the VS Code `env` block is convenient for local development, but consider using a config file (example below) to keep secrets out of editor settings.
 
-### Example `amb-client-config.json`
+### Configuration File Setup
 
-Create a small JSON config file and point the client to it with `--config`:
+A template config file is provided at `amb-client-config.example.json`. Copy it and fill in your real values:
 
-```json
-{
-  "server_url": "https://localhost:8443",
-  "preshared_key": "amb_pk_REDACTED_SEE_F001",
-  "friendly_name": "zervin-workstation",
-  "host_tool": "vscode",
-  "heartbeat_interval_seconds": 60,
-  "allow_self_signed": true
-}
+```bash
+cp amb-client-config.example.json amb-client-config.json
+# Then edit amb-client-config.json and set your real preshared_key
 ```
+
+`amb-client-config.json` is listed in `.gitignore` and must **never** be committed to version control as it contains credentials.
 
 Then launch via your VS Code launcher or directly with Node/CLI as shown above.
 
