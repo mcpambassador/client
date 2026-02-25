@@ -1,6 +1,6 @@
 {
   "name": "@mcpambassador/client",
-  "version": "0.1.0",
+  "version": "0.8.0-beta.1",
   "description": "MCP Ambassador Client - Lightweight HTTP/MCP proxy for developer workstations",
   "type": "module",
   "bin": {
