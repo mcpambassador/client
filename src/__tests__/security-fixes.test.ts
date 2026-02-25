@@ -85,23 +85,6 @@ describe('M16 Security Fixes', () => {
     });
   });
 
-  describe('SEC-M16-F3: maskSecret() Character Exposure', () => {
-    // We can't directly test maskSecret since it's not exported,
-    // but we can verify by checking logs during registration mock
-    it('should mask prefixed secrets correctly', () => {
-      // This is tested through the existing registration tests
-      // which shows: amb_pk_test****
-      expect(true).toBe(true);
-    });
-
-    it('should reveal at most 4 characters for short secrets', () => {
-      // The maskSecret function is internal, but the test validates
-      // that we changed the fallback from 11 chars to at most 4 chars
-      // Test case: "mysecretkey123" → "my...13" (4 chars visible)
-      expect(true).toBe(true);
-    });
-  });
-
   describe('SEC-M16-F4: heartbeat_interval_seconds Bounds', () => {
     it('should clamp heartbeat below minimum to 5 seconds', () => {
       const client = new AmbassadorClient({

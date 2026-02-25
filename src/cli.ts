@@ -68,37 +68,61 @@ function parseArgs(): {
     } else if (arg === '--heartbeat-interval') {
       const value = args[++i];
       if (value) {
-        heartbeatInterval = parseInt(value, 10);
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed)) {
+          console.error(`--heartbeat-interval must be a whole number, got: "${value}"`);
+          process.exit(1);
+        }
+        heartbeatInterval = parsed;
       }
     } else if (arg?.startsWith('--heartbeat-interval=')) {
       const value = arg.split('=')[1];
       if (value) {
-        heartbeatInterval = parseInt(value, 10);
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed)) {
+          console.error(`--heartbeat-interval must be a whole number, got: "${value}"`);
+          process.exit(1);
+        }
+        heartbeatInterval = parsed;
       }
     } else if (arg === '--cache-ttl') {
       const value = args[++i];
       if (value) {
-        cacheTtl = parseInt(value, 10);
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed)) {
+          console.error(`--cache-ttl must be a whole number, got: "${value}"`);
+          process.exit(1);
+        }
+        cacheTtl = parsed;
       }
     } else if (arg?.startsWith('--cache-ttl=')) {
       const value = arg.split('=')[1];
       if (value) {
-        cacheTtl = parseInt(value, 10);
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed)) {
+          console.error(`--cache-ttl must be a whole number, got: "${value}"`);
+          process.exit(1);
+        }
+        cacheTtl = parsed;
       }
+    } else if (arg === '--version' || arg === '-v') {
+      process.stdout.write('mcpambassador-client 0.1.0\n');
+      process.exit(0);
     } else if (arg === '--help' || arg === '-h') {
-      console.log(`
+      process.stdout.write(`
 MCP Ambassador Client
 
 Usage:
   mcpambassador-client --server <url>
   mcpambassador-client --config <path>
-  
+
 Options:
   --server <url>              Ambassador Server URL (e.g., https://ambassador.internal:8443)
   --config <path>             Path to JSON config file
   --allow-self-signed         Allow self-signed TLS certificates (dev/test only)
   --heartbeat-interval <sec>  Heartbeat interval in seconds (default: 60)
   --cache-ttl <sec>           Tool catalog cache TTL in seconds (default: 60)
+  --version, -v               Show version number
   --help, -h                  Show this help message
 
 Environment Variables:
@@ -108,21 +132,26 @@ Environment Variables:
   MCP_AMBASSADOR_HOST_TOOL            Host tool identifier (default: vscode)
   MCP_AMBASSADOR_HEARTBEAT_INTERVAL   Heartbeat interval in seconds (default: 60)
   MCP_AMBASSADOR_CACHE_TTL            Tool catalog cache TTL in seconds (default: 60)
-  MCP_AMBASSADOR_DISABLE_CACHE         Disable client tool cache (true/false)
+  MCP_AMBASSADOR_DISABLE_CACHE        Disable client tool cache (true/false)
   HOSTNAME                            Used as friendly_name if not specified
-  
+
 Config File Format (JSON):
   {
     "server_url": "https://ambassador.internal:8443",
     "preshared_key": "amb_pk_...",
     "friendly_name": "my-workstation",
     "host_tool": "vscode",
-    "heartbeat_interval_seconds": 60
+    "heartbeat_interval_seconds": 60,
+    "cache_ttl_seconds": 60,
+    "disable_cache": false,
+    "allow_self_signed": false
   }
+
+  Required: server_url, preshared_key. All other fields are optional.
 
 Example:
   mcpambassador-client --server https://ambassador.internal:8443 --allow-self-signed
-      `);
+\n`);
       process.exit(0);
     }
   }
@@ -164,7 +193,7 @@ async function main(): Promise<void> {
       : undefined;
 
   if (!serverUrl && !configPath) {
-    console.error('Error: Either --server or --config must be provided');
+    console.error('Either --server or --config must be provided');
     console.error('Run with --help for usage information');
     process.exit(1);
   }
@@ -176,6 +205,14 @@ async function main(): Promise<void> {
     try {
       const configFile = readFileSync(configPath, 'utf-8');
       config = JSON.parse(configFile);
+      if (!config.server_url) {
+        console.error(`Config file "${configPath}" is missing required field: server_url`);
+        process.exit(1);
+      }
+      if (!config.preshared_key) {
+        console.error(`Config file "${configPath}" is missing required field: preshared_key`);
+        process.exit(1);
+      }
       console.info(`[client] Loaded config from ${configPath}`);
     } catch (error) {
       console.error(`[client] Failed to load config file: ${error}`);
@@ -183,7 +220,7 @@ async function main(): Promise<void> {
     }
   } else {
     if (!presharedKey) {
-      console.error('Error: MCP_AMBASSADOR_PRESHARED_KEY environment variable is required');
+      console.error('MCP_AMBASSADOR_PRESHARED_KEY environment variable is required');
       console.error('Run with --help for usage information');
       process.exit(1);
     }

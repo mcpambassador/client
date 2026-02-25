@@ -1,8 +1,7 @@
 /**
- * Local copy of protocol types from @mcpambassador/protocol
+ * Protocol types shared between client and server.
  *
- * This is a temporary solution for M6.6 development.
- * In production, the client should use the published @mcpambassador/protocol package.
+ * TODO: Replace with import from `@mcpambassador/protocol` once published.
  */
 
 export const API_VERSION = 'v1';

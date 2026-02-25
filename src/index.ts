@@ -11,6 +11,7 @@
  */
 
 import https from 'https';
+import http from 'http';
 import { IncomingMessage } from 'http';
 import { hostname } from 'os';
 import type {
@@ -72,7 +73,10 @@ export interface ClientConfig {
   host_tool?: string;
   /** Heartbeat interval in seconds (default: 60) */
   heartbeat_interval_seconds?: number;
-  /** Tool catalog cache TTL in seconds (default: 300) */
+  /**
+   * Tool catalog cache TTL in seconds (default: 60).
+   * If not set, caching is disabled entirely — the catalog is fetched fresh on every tools/list request.
+   */
   cache_ttl_seconds?: number;
   /** Disable in-memory tool catalog cache entirely */
   disable_cache?: boolean;
@@ -212,10 +216,10 @@ export class AmbassadorClient {
       // when server-side subscriptions/profile bindings changed.
       this.toolCatalogCache = null;
 
-      console.info(`[client] Session registered: ${response.session_id}`);
-      console.info(`[client] Connection ID: ${response.connection_id}`);
+      console.info(`[client] Session registered: ${this.sessionId}`);
+      console.info(`[client] Connection ID: ${this.connectionId}`);
       console.info(`[client] Profile ID: ${response.profile_id}`);
-      console.info(`[client] Expires at: ${response.expires_at}`);
+      console.info(`[client] Expires at: ${this.expiresAt}`);
 
       // Start heartbeat timer
       this.startHeartbeat();
@@ -415,10 +419,6 @@ export class AmbassadorClient {
     this.connectionId = null;
     this.expiresAt = null;
 
-    // Reference fields to satisfy strict type-checkers for intentionally-kept fields
-    void this.sessionId;
-    void this.expiresAt;
-
     console.info('[client] MCP server stopped');
   }
 
@@ -429,6 +429,7 @@ export class AmbassadorClient {
   private sendDisconnect(): Promise<void> {
     return new Promise<void>(resolve => {
       const url = new URL(this.config.server_url);
+      const transport = url.protocol === 'https:' ? https : http;
       const disconnectPath = `/v1/sessions/connections/${this.connectionId}`;
 
       const options: https.RequestOptions = {
@@ -443,7 +444,7 @@ export class AmbassadorClient {
         rejectUnauthorized: !this.config.allow_self_signed,
       };
 
-      const req = https.request(options, (res: IncomingMessage) => {
+      const req = transport.request(options, (res: IncomingMessage) => {
         // Drain response and resolve when finished
         res.on('data', () => {});
         res.on('end', () => resolve());
@@ -555,7 +556,7 @@ export class AmbassadorClient {
       },
       serverInfo: {
         name: '@mcpambassador/client',
-        version: '0.1.0',
+        version: '0.1.0', // TODO: import from package.json once build supports it
       },
     });
   }
@@ -610,6 +611,7 @@ export class AmbassadorClient {
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const url = new URL(this.config.server_url);
+      const transport = url.protocol === 'https:' ? https : http;
 
       const options: https.RequestOptions = {
         hostname: url.hostname,
@@ -627,7 +629,7 @@ export class AmbassadorClient {
         (options.headers as Record<string, string>)['X-Session-Token'] = this.sessionToken;
       }
 
-      const req = https.request(options, (res: IncomingMessage) => {
+      const req = transport.request(options, (res: IncomingMessage) => {
         let data = '';
 
         res.on('data', (chunk: Buffer) => {
@@ -684,7 +686,7 @@ export class AmbassadorClient {
             this.register()
               .then(() => {
                 if (wasSuspended) {
-                  console.error('[client] Reconnected successfully.');
+                  console.info('[client] Reconnected successfully.');
                 } else {
                   console.info('[client] Re-registration successful, retrying request');
                 }
