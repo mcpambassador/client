@@ -1,0 +1,107 @@
+name: Bundle Size Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+
+jobs:
+  bundle-size:
+    name: Check bundle size
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install and build PR branch
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          DU=$(du -sh dist/ | awk '{print $1}')
+          INDEX_SIZE=$(wc -c < dist/index.js)
+          CLI_SIZE=$(wc -c < dist/cli.js)
+          echo "DIST_SIZE=$DU" >> $GITHUB_ENV
+          echo "INDEX_BYTES=$INDEX_SIZE" >> $GITHUB_ENV
+          echo "CLI_BYTES=$CLI_SIZE" >> $GITHUB_ENV
+
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - name: Build base branch
+        run: |
+          cd base
+          pnpm install --frozen-lockfile
+          pnpm build
+          BASE_INDEX=$(wc -c < dist/index.js)
+          BASE_CLI=$(wc -c < dist/cli.js)
+          echo "BASE_INDEX_BYTES=$BASE_INDEX" >> $GITHUB_ENV
+          echo "BASE_CLI_BYTES=$BASE_CLI" >> $GITHUB_ENV
+
+      - name: Comment size report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const indexPr = parseInt(process.env.INDEX_BYTES);
+            const indexBase = parseInt(process.env.BASE_INDEX_BYTES);
+            const cliPr = parseInt(process.env.CLI_BYTES);
+            const cliBase = parseInt(process.env.BASE_CLI_BYTES);
+
+            const fmt = (bytes) => `${(bytes / 1024).toFixed(2)} KB`;
+            const delta = (pr, base) => {
+              const diff = pr - base;
+              const sign = diff >= 0 ? '+' : '';
+              return `${sign}${(diff / 1024).toFixed(2)} KB`;
+            };
+            const icon = (pr, base) => pr > base * 1.1 ? '⚠️' : pr < base ? '✅' : '➡️';
+
+            const body = `## Bundle Size Report
+
+| File | Base | PR | Delta | |
+|------|------|-----|-------|---|
+| \`dist/index.js\` | ${fmt(indexBase)} | ${fmt(indexPr)} | ${delta(indexPr, indexBase)} | ${icon(indexPr, indexBase)} |
+| \`dist/cli.js\` | ${fmt(cliBase)} | ${fmt(cliPr)} | ${delta(cliPr, cliBase)} | ${icon(cliPr, cliBase)} |
+| **Total dist** | — | **${process.env.DIST_SIZE}** | — | |
+
+> ⚠️ = >10% increase · ✅ = decreased · ➡️ = similar`;
+
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            const existing = comments.data.find(c => c.body.includes('Bundle Size Report'));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }

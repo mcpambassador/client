@@ -1,0 +1,69 @@
+name: Bug Report
+description: Report a bug in the MCP Ambassador Client
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the bug report! The client is a zero-dependency stdio proxy — please include as much detail as possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: Client Version
+      description: "Run: `mcpambassador-client --version` or check your package.json"
+      placeholder: "e.g. 0.8.0-beta.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: host
+    attributes:
+      label: AI Host Tool
+      description: Which MCP host are you using?
+      options:
+        - VS Code / GitHub Copilot
+        - Claude Desktop
+        - Claude Code
+        - Cursor
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: What happened? What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config (redacted)
+      description: Paste your `amb-client-config.json` with the preshared key replaced with `REDACTED`
+      render: json
+
+  - type: textarea
+    id: stderr
+    attributes:
+      label: stderr Output
+      description: Paste any error output from the client (never paste preshared keys or tokens)
+      render: text
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      placeholder: "e.g. v20.11.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      placeholder: "e.g. macOS 15.2, Ubuntu 24.04, Windows 11"
+    validations:
+      required: true

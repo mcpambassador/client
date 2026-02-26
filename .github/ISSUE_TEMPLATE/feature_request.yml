@@ -1,0 +1,39 @@
+name: Feature Request
+description: Propose a new feature for the MCP Ambassador Client
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The client has a strict constraint: **zero production dependencies**. Any feature must be implementable with Node.js built-ins only.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Use Case
+      description: What are you trying to accomplish? What is the current limitation?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: What would you like to see? How would it work?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: zero-dep
+    attributes:
+      label: Dependency Constraint
+      options:
+        - label: I understand this feature must be implementable without adding production dependencies
+          required: true
+
+  - type: checkboxes
+    id: willing-to-pr
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a PR for this feature

@@ -1,0 +1,48 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    name: Auto-triage new issue
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const text = (issue.title + ' ' + (issue.body || '')).toLowerCase();
+            const labels = ['needs-triage'];
+
+            if (text.includes('bug') || text.includes('crash') || text.includes('error') || text.includes('broken')) {
+              labels.push('bug');
+            }
+            if (text.includes('feature') || text.includes('enhancement') || text.includes('add support')) {
+              labels.push('enhancement');
+            }
+            if (text.includes('zero dep') || text.includes('dependency') || text.includes('import')) {
+              labels.push('dependencies');
+            }
+            if (text.includes('security') || text.includes('tls') || text.includes('certificate')) {
+              labels.push('security');
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: `Thanks for opening this issue, @${issue.user.login}! A maintainer will review it shortly.
+
+**Note:** The MCP Ambassador Client has zero production dependencies by design. If you're requesting a dependency for a feature, we likely need to implement it using Node.js built-ins.`
+            });

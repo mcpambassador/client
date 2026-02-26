@@ -28,7 +28,15 @@
     "client"
   ],
   "author": "MCP Ambassador Team",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mcpambassador/client.git"
+  },
+  "homepage": "https://github.com/mcpambassador/client#readme",
+  "bugs": {
+    "url": "https://github.com/mcpambassador/client/issues"
+  },
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.11.5",

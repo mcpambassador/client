@@ -1,0 +1,44 @@
+name: PR Automation
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+jobs:
+  auto-label:
+    name: Label by files changed
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Label PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+
+            const paths = files.map(f => f.filename);
+            const labels = [];
+
+            if (paths.some(f => f.startsWith('src/'))) labels.push('area: source');
+            if (paths.some(f => f.startsWith('tests/'))) labels.push('area: tests');
+            if (paths.some(f => f.includes('package.json'))) labels.push('area: dependencies');
+            if (paths.some(f => f.startsWith('.github/'))) labels.push('area: ci');
+
+            // Flag if package.json was changed — validate zero-deps constraint
+            if (paths.includes('package.json')) {
+              labels.push('package-json-changed');
+            }
+
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels
+              });
+            }
