@@ -13,6 +13,7 @@ dist/
 # Configuration (user-specific)
 config.yaml
 config.yml
+!.github/ISSUE_TEMPLATE/config.yml
 
 # Client configuration (contains credentials)
 amb-client-config.json
