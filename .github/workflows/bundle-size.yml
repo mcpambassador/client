@@ -74,13 +74,13 @@ jobs:
 
             const body = `## Bundle Size Report
 
-| File | Base | PR | Delta | |
-|------|------|-----|-------|---|
-| \`dist/index.js\` | ${fmt(indexBase)} | ${fmt(indexPr)} | ${delta(indexPr, indexBase)} | ${icon(indexPr, indexBase)} |
-| \`dist/cli.js\` | ${fmt(cliBase)} | ${fmt(cliPr)} | ${delta(cliPr, cliBase)} | ${icon(cliPr, cliBase)} |
-| **Total dist** | — | **${process.env.DIST_SIZE}** | — | |
+            | File | Base | PR | Delta | |
+            |------|------|-----|-------|---|
+            | \`dist/index.js\` | ${fmt(indexBase)} | ${fmt(indexPr)} | ${delta(indexPr, indexBase)} | ${icon(indexPr, indexBase)} |
+            | \`dist/cli.js\` | ${fmt(cliBase)} | ${fmt(cliPr)} | ${delta(cliPr, cliBase)} | ${icon(cliPr, cliBase)} |
+            | **Total dist** | — | **${process.env.DIST_SIZE}** | — | |
 
-> ⚠️ = >10% increase · ✅ = decreased · ➡️ = similar`;
+            > ⚠️ = >10% increase · ✅ = decreased · ➡️ = similar`;
 
             // Find existing comment
             const comments = await github.rest.issues.listComments({
