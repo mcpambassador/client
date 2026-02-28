@@ -1,19 +1,72 @@
 # MCP Ambassador Client
 
-Lightweight HTTP/MCP proxy for developer workstations.
+A lightweight stdio MCP proxy that connects any MCP-compatible AI tool to an MCP Ambassador server. Install once -- tools appear automatically.
 
-## Overview
+![CI](https://github.com/mcpambassador/client/actions/workflows/ci.yml/badge.svg) [![npm](https://img.shields.io/npm/v/@mcpambassador/client.svg)](https://www.npmjs.com/package/@mcpambassador/client) ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg) ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg) [![Website](https://img.shields.io/badge/docs-mcpambassador.ai-blue.svg)](https://mcpambassador.ai)
 
-The Ambassador Client is a thin proxy that runs on developer machines and connects them to the Ambassador Server. Main responsibilities:
+## What Is This
 
-- Register with the Ambassador Server using a preshared key (ephemeral sessions)
-- Fetch and cache the tool catalog
-- Implement the MCP protocol for host apps (VS Code, Claude Desktop, etc.)
-- Relay tool calls from the host app to the Ambassador Server
+The Ambassador Client is the only MCP you install on your workstation. It connects to an MCP Ambassador Server and dynamically discovers all the tools your admin has published for you. Tools from dozens of downstream MCPs appear as native tools in your AI client. No per-tool installation, no credential management, no configuration drift.
 
-## New Configuration Format
+## Install
 
-The client now uses a JSON configuration format. Example:
+```bash
+npm install -g @mcpambassador/client
+```
+
+Or with npx (zero install):
+
+```bash
+npx @mcpambassador/client --config /path/to/config.json
+```
+
+## Quick Start
+
+**VS Code** -- add to your VS Code settings or `.vscode/mcp.json`:
+
+```json
+{
+  "mcp.servers": {
+    "mcpambassador": {
+      "command": "npx",
+      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
+      "env": {
+        "MCP_AMBASSADOR_URL": "https://your-server:8443",
+        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+**Claude Desktop** -- add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcpambassador": {
+      "command": "npx",
+      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
+      "env": {
+        "MCP_AMBASSADOR_URL": "https://your-server:8443",
+        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+**Any MCP Host** -- the generic pattern:
+
+```
+command: npx -y @mcpambassador/client --config /path/to/amb-client-config.json
+env: MCP_AMBASSADOR_URL=https://your-server:8443
+env: MCP_AMBASSADOR_PRESHARED_KEY=amb_pk_YOUR_KEY
+```
+
+## Configuration
+
+The client accepts a JSON configuration file. A template is provided at `amb-client-config.example.json`:
 
 ```json
 {
@@ -26,27 +79,32 @@ The client now uses a JSON configuration format. Example:
 }
 ```
 
-Notes:
-- `preshared_key` is required and replaces the old API key model.
-- `friendly_name` defaults to the system hostname when omitted.
-- `host_tool` identifies the host integration (e.g., `vscode`).
+Copy and configure:
+
+```bash
+cp amb-client-config.example.json amb-client-config.json
+```
+
+Note: `amb-client-config.json` is gitignored. Never commit configuration files containing credentials.
 
 ## Environment Variables
 
-- `MCP_AMBASSADOR_PRESHARED_KEY` — preshared key (required if not using a config file)
-- `MCP_AMBASSADOR_URL` — server URL (alternative to `--server`)
-- `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` — set to `true` to allow self-signed certs (dev only)
-- `MCP_AMBASSADOR_HOST_TOOL` — host tool identifier (defaults to `vscode`)
-- `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` — heartbeat interval in seconds (default: 60)
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MCP_AMBASSADOR_URL` | Yes | -- | Server URL (e.g., `https://your-server:8443`) |
+| `MCP_AMBASSADOR_PRESHARED_KEY` | Yes | -- | Client preshared key (`amb_pk_...`) |
+| `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` | No | `false` | Allow self-signed TLS certificates (dev only) |
+| `MCP_AMBASSADOR_HOST_TOOL` | No | `vscode` | Host tool identifier |
+| `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No | `60` | Heartbeat interval in seconds |
 
 ## CLI Usage
 
 ```
 mcpambassador-client --server <url>
-mcpambassador-client --config <path-to-json>
+mcpambassador-client --config <path>
 
 Options:
-  --server <url>               Ambassador Server URL (e.g., https:// https://ambassador.internal:8443)
+  --server <url>               Ambassador Server URL
   --config <path>              Path to JSON config file
   --allow-self-signed          Allow self-signed TLS certificates (dev/test only)
   --heartbeat-interval <sec>   Heartbeat interval in seconds (default: 60)
@@ -54,97 +112,45 @@ Options:
   --help, -h                   Show help
 ```
 
-Environment variable `MCP_AMBASSADOR_PRESHARED_KEY` is used when not running with a config file.
+## How It Works
 
-## Heartbeat Behavior
-
-- The client sends an automatic heartbeat to the server to keep ephemeral sessions active.
-- Default interval is 60 seconds and is configurable via `heartbeat_interval_seconds` in the config file or `--heartbeat-interval` / `MCP_AMBASSADOR_HEARTBEAT_INTERVAL`.
-- Heartbeats are best-effort and rate-limited by the server.
+- Client registers with the server using a preshared key
+- Server returns an ephemeral session token and the tool catalog
+- Client exposes discovered tools as native MCP tools via stdio
+- The host AI tool (VS Code, Claude Desktop) sees tools as if they were local
+- Heartbeat keeps the session alive; the tool catalog refreshes automatically
 
 ## Session Lifecycle
 
-- Sessions are ephemeral and stored in memory only.
-- If the server returns a 401 with `session_expired`, the client will automatically re-register using the preshared key and retry the failed request.
-  - User-facing message on expiry: `[client] Session expired, re-registering...` (emitted to stderr)
-- If the server returns a 401 with `session_suspended`, the client will attempt to re-register and the host app will see a clear message while MCP instances are restarted.
-  - User-facing message on suspension: `[client] Session suspended. Reconnecting... MCP instances restarting.` (emitted to stderr)
-- If re-registration after suspension succeeds: `[client] Reconnected successfully.` (emitted to stderr)
-- If re-registration fails: `[client] Failed to reconnect: <error>. Please check your preshared key.` (emitted to stderr)
+- Sessions are ephemeral and stored in memory only
+- If the server returns 401 with `session_expired`, the client automatically re-registers
+- If the server returns 401 with `session_suspended`, the client attempts to reconnect
+- On SIGINT/SIGTERM, the client performs a best-effort disconnect (2-second timeout)
 
-## Graceful Shutdown
+## Requirements
 
-- On SIGINT/SIGTERM the client performs a best-effort disconnect by sending `DELETE /v1/sessions/connections/{connection_id}` to the server.
-- The disconnect uses a short timeout (2 seconds) and never blocks shutdown if the server is unreachable.
-
-## VS Code MCP Configuration Example
-
-Add a server entry to your VS Code `settings.json` to launch the Ambassador Client as a local MCP provider:
-
-```json
-{
-  "mcpServers": {
-    "ambassador": {
-      "command": "mcpambassador-client",
-      "args": ["--config", "/path/to/amb-client-config.json"]
-    }
-  }
-}
-```
-
-Or start directly with server URL and preshared key via environment variables.
-
-### VS Code (stdio) launcher example
-
-If you launch the client directly with a Node binary (local, unpublished build) you can keep the same `command`/`args`/`env` shape you already use in your VS Code `mcp.json` / `settings.json`. Example (your local setup):
-
-```json
-"mcpambassador-local": {
-  "type": "stdio",
-  "command": "/home/zervin/.nvm/versions/node/v24.13.1/bin/node",
-  "args": [
-    "/home/zervin/projects/abs/mcpambassador_client/dist/cli.js",
-    "--config",
-    "/home/zervin/.config/amb-client-config.json"
-  ],
-  "env": {
-    "MCP_AMBASSADOR_URL": "https://localhost:8443",
-    "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_CHANGE_ME_AFTER_REGISTRATION",
-    "MCP_AMBASSADOR_ALLOW_SELF_SIGNED": "true"
-  }
-}
-```
-
-Notes:
-- The client will read the JSON config file passed with `--config` and/or fall back to the environment variables shown above.
-- Using the VS Code `env` block is convenient for local development, but consider using a config file (example below) to keep secrets out of editor settings.
-
-### Configuration File Setup
-
-A template config file is provided at `amb-client-config.example.json`. Copy it and fill in your real values:
-
-```bash
-cp amb-client-config.example.json amb-client-config.json
-# Then edit amb-client-config.json and set your real preshared_key
-```
-
-`amb-client-config.json` is listed in `.gitignore` and must **never** be committed to version control as it contains credentials.
-
-Then launch via your VS Code launcher or directly with Node/CLI as shown above.
+- Node.js 20 or later
+- An MCP Ambassador server ([server repo](https://github.com/mcpambassador/server))
+- A preshared key (obtained from the server admin or the self-service portal)
 
 ## Development
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Type check
-pnpm typecheck
-
-# Run tests
+pnpm build
 pnpm test
+pnpm typecheck
+pnpm lint
 ```
+
+## Related Projects
+
+| Project | Description |
+|---------|-------------|
+| [MCP Ambassador Server](https://github.com/mcpambassador/server) | Centralized MCP governance server |
+| [Community Registry](https://github.com/mcpambassador/community-registry) | Curated registry of 38+ MCP configurations |
+| [Documentation](https://mcpambassador.ai) | Full documentation, guides, and API reference |
 
 ## License
 
-MIT
+Apache License 2.0 -- see [LICENSE](./LICENSE).
