@@ -154,3 +154,7 @@ pnpm lint
 ## License
 
 Apache License 2.0 -- see [LICENSE](./LICENSE).
+
+## Contributing
+
+We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including the zero-dependency requirement that applies to all changes.
