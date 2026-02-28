@@ -1,0 +1,19 @@
+# MCP Ambassador Client — CODEOWNERS
+
+# Default: client maintainers review everything
+*                                   @mcpambassador/client-maintainers
+
+# Core source — requires lead reviewer
+src/                                @mcpambassador/client-maintainers @mcpambassador/core-reviewers
+
+# Security-sensitive: auth/TLS handling
+src/auth*                           @mcpambassador/security @mcpambassador/client-maintainers
+src/tls*                            @mcpambassador/security @mcpambassador/client-maintainers
+src/transport*                      @mcpambassador/security @mcpambassador/client-maintainers
+
+# Package manifest — zero-dep constraint
+package.json                        @mcpambassador/client-maintainers @mcpambassador/core-reviewers
+
+# CI/release workflows
+.github/workflows/publish.yml       @mcpambassador/devops @mcpambassador/client-maintainers
+.github/workflows/                  @mcpambassador/devops

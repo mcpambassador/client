@@ -1,0 +1,8 @@
+{
+  "server_url": "https://your-server:8443",
+  "preshared_key": "amb_pk_CHANGE_ME_AFTER_REGISTRATION",
+  "friendly_name": "my-client",
+  "host_tool": "vscode",
+  "heartbeat_interval_seconds": 60,
+  "allow_self_signed": false
+}
