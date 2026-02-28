@@ -44,5 +44,5 @@ jobs:
               issue_number: issue.number,
               body: `Thanks for opening this issue, @${issue.user.login}! A maintainer will review it shortly.
 
-**Note:** The MCP Ambassador Client has zero production dependencies by design. If you're requesting a dependency for a feature, we likely need to implement it using Node.js built-ins.`
+            **Note:** The MCP Ambassador Client has zero production dependencies by design. If you're requesting a dependency for a feature, we likely need to implement it using Node.js built-ins.`
             });
