@@ -177,3 +177,13 @@ The client exposes several timing parameters that affect server load and respons
 | Large org (50–100 devs) | 180s | 600s | Reduces server load at scale |
 
 All settings are configurable via CLI flags, environment variables, or the JSON config file.
+
+## Support
+
+MCP Ambassador is free and open source. If it's useful to you, consider supporting development.
+
+Support via GitHub Sponsors: https://github.com/sponsors/mcpambassador
+
+Crypto donations:
+- Bitcoin: `3QH4WQoQqnhU3LhbZQU8ttXaNco5Ge3xVp`
+- Ethereum: `0xa5462444c5AEf0B2e32822D9a9B7f91aC794FfF0`
