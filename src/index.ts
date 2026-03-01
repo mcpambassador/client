@@ -71,7 +71,9 @@ export interface ClientConfig {
   friendly_name?: string;
   /** Host tool identifier (default: 'vscode') */
   host_tool?: string;
-  /** Heartbeat interval in seconds (default: 60) */
+  /**
+   * Heartbeat interval in seconds (default: 120, min: 15, max: 300)
+   */
   heartbeat_interval_seconds?: number;
   /**
    * Tool catalog cache TTL in seconds (default: 60).
@@ -146,10 +148,10 @@ export class AmbassadorClient {
     this.config.friendly_name = config.friendly_name || hostname();
     this.config.host_tool = config.host_tool || 'vscode';
 
-    // SEC-M16-F4: Bound heartbeat_interval_seconds (min: 5s, max: 300s)
-    const MIN_HEARTBEAT = 5;
+    // SEC-M16-F4: Bound heartbeat_interval_seconds (min: 15s, max: 300s)
+    const MIN_HEARTBEAT = 15;
     const MAX_HEARTBEAT = 300;
-    const DEFAULT_HEARTBEAT = 60;
+    const DEFAULT_HEARTBEAT = 120;
     let heartbeat = config.heartbeat_interval_seconds ?? DEFAULT_HEARTBEAT;
 
     if (heartbeat < MIN_HEARTBEAT) {
@@ -167,15 +169,14 @@ export class AmbassadorClient {
     }
     this.config.heartbeat_interval_seconds = heartbeat;
 
-    // Reduce cache TTL from 300s to 60s for faster subscription change propagation
+    // Tool catalog cache: enabled by default with 300s TTL.
+    // Tool catalogs change rarely (only when admin reloads config), so caching
+    // reduces server load significantly at scale (100+ clients).
     // Use nullish coalescing so 0 is respected (cache disable use-case)
-    const cacheTtl = config.cache_ttl_seconds ?? 60;
+    const cacheTtl = config.cache_ttl_seconds ?? 300;
     this.config.cache_ttl_seconds = Math.max(0, cacheTtl);
-    // Default to no client-side catalog cache unless explicitly configured.
-    // This avoids stale catalogs across host/client restarts and keeps behavior aligned
-    // with current server session/subscription state.
-    const hasExplicitTtl = config.cache_ttl_seconds !== undefined;
-    this.config.disable_cache = config.disable_cache ?? !hasExplicitTtl;
+    // Cache is enabled by default. Set disable_cache=true or cache_ttl_seconds=0 to disable.
+    this.config.disable_cache = config.disable_cache ?? false;
     this.config.allow_self_signed = config.allow_self_signed ?? false;
   }
 

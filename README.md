@@ -74,7 +74,7 @@ The client accepts a JSON configuration file. A template is provided at `amb-cli
   "preshared_key": "amb_pk_...",
   "friendly_name": "my-workstation",
   "host_tool": "vscode",
-  "heartbeat_interval_seconds": 60,
+  "heartbeat_interval_seconds": 120,
   "allow_self_signed": true
 }
 ```
@@ -95,7 +95,7 @@ Note: `amb-client-config.json` is gitignored. Never commit configuration files c
 | `MCP_AMBASSADOR_PRESHARED_KEY` | Yes | -- | Client preshared key (`amb_pk_...`) |
 | `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` | No | `false` | Allow self-signed TLS certificates (dev only) |
 | `MCP_AMBASSADOR_HOST_TOOL` | No | `vscode` | Host tool identifier |
-| `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No | `60` | Heartbeat interval in seconds |
+| `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No | `120` | Heartbeat interval in seconds |
 
 ## CLI Usage
 
@@ -107,8 +107,8 @@ Options:
   --server <url>               Ambassador Server URL
   --config <path>              Path to JSON config file
   --allow-self-signed          Allow self-signed TLS certificates (dev/test only)
-  --heartbeat-interval <sec>   Heartbeat interval in seconds (default: 60)
-  --cache-ttl <sec>            Tool catalog cache TTL in seconds (default: 60)
+  --heartbeat-interval <sec>   Heartbeat interval in seconds (default: 120)
+  --cache-ttl <sec>            Tool catalog cache TTL in seconds (default: 300)
   --help, -h                   Show help
 ```
 
@@ -158,3 +158,22 @@ Apache License 2.0 -- see [LICENSE](./LICENSE).
 ## Contributing
 
 We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including the zero-dependency requirement that applies to all changes.
+
+## Performance Tuning
+
+The client exposes several timing parameters that affect server load and responsiveness:
+
+| Setting | Default | Range | Description |
+|---------|---------|-------|-------------|
+| `heartbeat_interval_seconds` | 120 | 15–300 | How often the client pings the server to keep the session alive. Higher values reduce server traffic. |
+| `cache_ttl_seconds` | 300 | 0+ | How long the tool catalog is cached locally. Set to 0 to disable caching. |
+
+### Deployment profiles
+
+| Profile | Heartbeat | Cache TTL | Notes |
+|---------|-----------|-----------|-------|
+| Solo developer | 120s (default) | 300s (default) | Works out of the box |
+| Small team (5–10 devs) | 120s | 300s | Default settings are fine |
+| Large org (50–100 devs) | 180s | 600s | Reduces server load at scale |
+
+All settings are configurable via CLI flags, environment variables, or the JSON config file.

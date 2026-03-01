@@ -3,6 +3,7 @@
   "preshared_key": "amb_pk_CHANGE_ME_AFTER_REGISTRATION",
   "friendly_name": "my-client",
   "host_tool": "vscode",
-  "heartbeat_interval_seconds": 60,
+  "heartbeat_interval_seconds": 120,
+  "cache_ttl_seconds": 300,
   "allow_self_signed": false
 }

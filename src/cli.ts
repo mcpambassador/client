@@ -120,8 +120,8 @@ Options:
   --server <url>              Ambassador Server URL (e.g., https://ambassador.internal:8443)
   --config <path>             Path to JSON config file
   --allow-self-signed         Allow self-signed TLS certificates (dev/test only)
-  --heartbeat-interval <sec>  Heartbeat interval in seconds (default: 60)
-  --cache-ttl <sec>           Tool catalog cache TTL in seconds (default: 60)
+   --heartbeat-interval <sec>  Heartbeat interval in seconds (default: 120, min: 15, max: 300)
+   --cache-ttl <sec>           Tool catalog cache TTL in seconds (default: 300, 0 to disable)
   --version, -v               Show version number
   --help, -h                  Show this help message
 
@@ -130,9 +130,9 @@ Environment Variables:
   MCP_AMBASSADOR_PRESHARED_KEY        Preshared key for authentication (REQUIRED)
   MCP_AMBASSADOR_ALLOW_SELF_SIGNED    Set to "true" to allow self-signed certs
   MCP_AMBASSADOR_HOST_TOOL            Host tool identifier (default: vscode)
-  MCP_AMBASSADOR_HEARTBEAT_INTERVAL   Heartbeat interval in seconds (default: 60)
-  MCP_AMBASSADOR_CACHE_TTL            Tool catalog cache TTL in seconds (default: 60)
-  MCP_AMBASSADOR_DISABLE_CACHE        Disable client tool cache (true/false)
+   MCP_AMBASSADOR_HEARTBEAT_INTERVAL   Heartbeat interval in seconds (default: 120)
+   MCP_AMBASSADOR_CACHE_TTL            Tool catalog cache TTL in seconds (default: 300)
+   MCP_AMBASSADOR_DISABLE_CACHE        Disable client tool cache (default: false, cache is enabled)
   HOSTNAME                            Used as friendly_name if not specified
 
 Config File Format (JSON):
@@ -141,8 +141,8 @@ Config File Format (JSON):
     "preshared_key": "amb_pk_...",
     "friendly_name": "my-workstation",
     "host_tool": "vscode",
-    "heartbeat_interval_seconds": 60,
-    "cache_ttl_seconds": 60,
+   "heartbeat_interval_seconds": 120,
+    "cache_ttl_seconds": 300,
     "disable_cache": false,
     "allow_self_signed": false
   }
