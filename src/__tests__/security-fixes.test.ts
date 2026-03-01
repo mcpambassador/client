@@ -86,7 +86,7 @@ describe('M16 Security Fixes', () => {
   });
 
   describe('SEC-M16-F4: heartbeat_interval_seconds Bounds', () => {
-    it('should clamp heartbeat below minimum to 5 seconds', () => {
+    it('should clamp heartbeat below minimum to 15 seconds', () => {
       const client = new AmbassadorClient({
         server_url: 'https://ambassador.internal:8443',
         preshared_key: 'amb_pk_test123',
@@ -95,8 +95,8 @@ describe('M16 Security Fixes', () => {
 
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('below minimum');
-      expect(consoleWarnSpy[0]).toContain('Clamping to 5s');
-      expect(client['config'].heartbeat_interval_seconds).toBe(5);
+      expect(consoleWarnSpy[0]).toContain('Clamping to 15s');
+      expect(client['config'].heartbeat_interval_seconds).toBe(15);
     });
 
     it('should clamp heartbeat above maximum to 300 seconds', () => {
@@ -123,25 +123,25 @@ describe('M16 Security Fixes', () => {
       expect(client['config'].heartbeat_interval_seconds).toBe(60);
     });
 
-    it('should use default of 60 seconds when not specified', () => {
+    it('should use default of 120 seconds when not specified', () => {
       const client = new AmbassadorClient({
         server_url: 'https://ambassador.internal:8443',
         preshared_key: 'amb_pk_test123',
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      expect(client['config'].heartbeat_interval_seconds).toBe(60);
+      expect(client['config'].heartbeat_interval_seconds).toBe(120);
     });
 
-    it('should accept minimum valid heartbeat of 5 seconds', () => {
+    it('should accept minimum valid heartbeat of 15 seconds', () => {
       const client = new AmbassadorClient({
         server_url: 'https://ambassador.internal:8443',
         preshared_key: 'amb_pk_test123',
-        heartbeat_interval_seconds: 5,
+        heartbeat_interval_seconds: 15,
       });
 
       expect(consoleWarnSpy.length).toBe(0);
-      expect(client['config'].heartbeat_interval_seconds).toBe(5);
+      expect(client['config'].heartbeat_interval_seconds).toBe(15);
     });
 
     it('should accept maximum valid heartbeat of 300 seconds', () => {
@@ -164,7 +164,7 @@ describe('M16 Security Fixes', () => {
 
       expect(consoleWarnSpy.length).toBe(1);
       expect(consoleWarnSpy[0]).toContain('below minimum');
-      expect(client['config'].heartbeat_interval_seconds).toBe(5);
+      expect(client['config'].heartbeat_interval_seconds).toBe(15);
     });
   });
 });
