@@ -56,7 +56,7 @@ jobs:
           echo "BASE_CLI_BYTES=$BASE_CLI" >> $GITHUB_ENV
 
       - name: Comment size report
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const indexPr = parseInt(process.env.INDEX_BYTES);
