@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v5
         with:
@@ -40,7 +40,7 @@ jobs:
           echo "CLI_BYTES=$CLI_SIZE" >> $GITHUB_ENV
 
       - name: Checkout base branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.base_ref }}
           path: base
