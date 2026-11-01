@@ -1,4 +1,4 @@
-// Source: mcpambassador/server packages/protocol/src/index.ts @ fe5c35b
+// Source: mcpambassador/server packages/protocol/src/index.ts @ 60ab8ca
 /**
  * @mcpambassador/protocol
  *
