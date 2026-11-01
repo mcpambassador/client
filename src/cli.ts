@@ -13,6 +13,7 @@
 import { readFileSync } from 'fs';
 import { AmbassadorClient, type ClientConfig } from './index.js';
 import { VERSION } from './version.js';
+import { HOST_TOOLS, isHostTool } from './host-tools.js';
 
 function configureStderrLogging(): void {
   const write = (level: string, args: unknown[]) => {
@@ -236,6 +237,13 @@ async function main(): Promise<void> {
       cache_ttl_seconds: cacheTtl,
       disable_cache: disableCache,
     };
+  }
+
+  if (config.host_tool !== undefined && !isHostTool(config.host_tool)) {
+    console.error(
+      `[client] Invalid host_tool "${String(config.host_tool)}". Valid values: ${HOST_TOOLS.join(', ')}`
+    );
+    process.exit(1);
   }
 
   // Create and initialize client

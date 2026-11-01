@@ -24,6 +24,7 @@ import type {
   ToolInvocationResponse,
   ToolDescriptor,
 } from './protocol-types.js';
+import { assertHostTool } from './host-tools.js';
 
 /**
  * Custom HTTP error class with structured error information
@@ -148,7 +149,9 @@ export class AmbassadorClient {
 
     // Set defaults
     this.config.friendly_name = config.friendly_name || hostname();
-    this.config.host_tool = config.host_tool || 'vscode';
+    const hostTool = config.host_tool ?? 'vscode';
+    assertHostTool(hostTool); // reject before registering: bad values count toward the server's per-IP lockout
+    this.config.host_tool = hostTool;
 
     // SEC-M16-F4: Bound heartbeat_interval_seconds (min: 15s, max: 300s)
     const MIN_HEARTBEAT = 15;
