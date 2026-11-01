@@ -29,6 +29,8 @@ import { assertHostTool } from './host-tools.js';
 /**
  * Custom HTTP error class with structured error information
  * Finding 1: Properly parse server error responses
+ *
+ * @internal Exported for tests only; not part of the public API.
  */
 export class HttpError extends Error {
   constructor(
