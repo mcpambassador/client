@@ -38,6 +38,19 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+  protocol-drift:
+    name: Protocol Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Compare protocol types with server main
+        run: node scripts/check-protocol.mjs
+
   validate-zero-deps:
     name: Validate Zero Production Dependencies
     runs-on: ubuntu-latest
