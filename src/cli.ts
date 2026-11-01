@@ -12,6 +12,7 @@
 
 import { readFileSync } from 'fs';
 import { AmbassadorClient, type ClientConfig } from './index.js';
+import { VERSION } from './version.js';
 
 function configureStderrLogging(): void {
   const write = (level: string, args: unknown[]) => {
@@ -106,7 +107,7 @@ function parseArgs(): {
         cacheTtl = parsed;
       }
     } else if (arg === '--version' || arg === '-v') {
-      process.stdout.write('mcpambassador-client 0.1.0\n');
+      process.stdout.write(`mcpambassador-client ${VERSION}\n`);
       process.exit(0);
     } else if (arg === '--help' || arg === '-h') {
       process.stdout.write(`

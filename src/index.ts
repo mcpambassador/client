@@ -10,6 +10,7 @@
  * @see Architecture §17 Client Resilience & Tool Catalog Caching
  */
 
+import { VERSION } from './version.js';
 import https from 'https';
 import http from 'http';
 import { IncomingMessage } from 'http';
@@ -557,7 +558,7 @@ export class AmbassadorClient {
       },
       serverInfo: {
         name: '@mcpambassador/client',
-        version: '0.1.0', // TODO: import from package.json once build supports it
+        version: VERSION,
       },
     });
   }
