@@ -30,7 +30,7 @@ import { assertHostTool } from './host-tools.js';
  * Custom HTTP error class with structured error information
  * Finding 1: Properly parse server error responses
  */
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(
     public statusCode: number,
     public errorCode: string,
@@ -547,6 +547,16 @@ export class AmbassadorClient {
     } catch (error) {
       // F-SEC-M6.6-003: Log detailed error to stderr, send generic message to host app
       console.error('[client] tools/call failed:', error);
+
+      // 403 = server policy denial (e.g. "Tool disabled by kill switch"). The message is a
+      // deliberate server-authored string, so surface it as an MCP tool error the model/user can read.
+      if (error instanceof HttpError && error.statusCode === 403) {
+        this.sendJsonRpcResponse(message.id, {
+          content: [{ type: 'text', text: error.errorMessage.slice(0, 500) }],
+          isError: true,
+        });
+        return;
+      }
       this.sendJsonRpcError(message.id, -32603, 'Tool invocation failed');
     }
   }
