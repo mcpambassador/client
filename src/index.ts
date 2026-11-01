@@ -25,7 +25,6 @@ import type {
   ToolDescriptor,
 } from './protocol-types.js';
 import { assertHostTool } from './host-tools.js';
-import { approvalMessage, parseApprovalResult } from './approval-result.js';
 
 /**
  * Custom HTTP error class with structured error information
@@ -548,26 +547,9 @@ export class AmbassadorClient {
 
       const response = await this.invokeTool(request);
 
-      // The server reports a tool that ran but failed (and the approval states) as a 200 with
+      // The server reports a tool that ran but failed as a 200 with
       // metadata.is_error; the host must see that as an error, not as success.
       const isError = response.metadata?.is_error === true;
-
-      // Approval results (ADR-023) come only from the pipeline-set metadata.approval, never from
-      // `result` (a downstream tool controls that and could imitate an approval). Validated, then turned
-      // into a short instruction for the agent plus the structured form; malformed ones are ignored.
-      const rawApproval = (response.metadata as { approval?: unknown } | undefined)?.approval;
-      const approval =
-        isError && rawApproval !== undefined
-          ? parseApprovalResult(rawApproval, this.config.server_url)
-          : null;
-      if (approval) {
-        this.sendJsonRpcResponse(message.id, {
-          content: [{ type: 'text', text: approvalMessage(approval) }],
-          structuredContent: approval,
-          isError: true,
-        });
-        return;
-      }
 
       const out: Record<string, unknown> = { content: response.result, isError };
       const structured = (response as { structuredContent?: unknown }).structuredContent;
