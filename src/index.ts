@@ -16,6 +16,7 @@ import http from 'http';
 import { IncomingMessage } from 'http';
 import { hostname } from 'os';
 import type {
+  HostTool,
   RegistrationRequest,
   RegistrationResponse,
   ToolCatalogResponse,
@@ -71,7 +72,7 @@ export interface ClientConfig {
   /** Friendly name for this client (default: hostname) */
   friendly_name?: string;
   /** Host tool identifier (default: 'vscode') */
-  host_tool?: string;
+  host_tool?: HostTool;
   /**
    * Heartbeat interval in seconds (default: 120, min: 15, max: 300)
    */
@@ -197,7 +198,7 @@ export class AmbassadorClient {
     const request: RegistrationRequest = {
       preshared_key: this.config.preshared_key,
       friendly_name: this.config.friendly_name!,
-      host_tool: this.config.host_tool! as any,
+      host_tool: this.config.host_tool!,
     };
 
     try {

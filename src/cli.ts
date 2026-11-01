@@ -230,7 +230,7 @@ async function main(): Promise<void> {
       server_url: serverUrl!,
       preshared_key: presharedKey,
       friendly_name: process.env.HOSTNAME || undefined,
-      host_tool: process.env.MCP_AMBASSADOR_HOST_TOOL || undefined,
+      host_tool: (process.env.MCP_AMBASSADOR_HOST_TOOL as ClientConfig['host_tool']) || undefined, // server validates the enum
       allow_self_signed: allowSelfSigned,
       heartbeat_interval_seconds: heartbeatInterval,
       cache_ttl_seconds: cacheTtl,

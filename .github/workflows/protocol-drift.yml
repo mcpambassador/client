@@ -1,17 +1,21 @@
 name: Protocol Drift (advisory)
 
-# Non-blocking: warns when src/protocol-types.ts has fallen behind server main.
+# Weekly: fails when src/protocol-types.ts has fallen behind server main and
+# opens (or updates) a GitHub issue so the drift gets noticed.
 # The blocking check (pinned SHA) lives in ci.yml.
 on:
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   drift-vs-main:
     name: Protocol types vs server main
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
 
@@ -21,3 +25,18 @@ jobs:
 
       - name: Compare with server main
         run: node scripts/check-protocol.mjs --main
+
+      - name: Open or update drift issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Protocol types drifted from server main"
+          body="The weekly protocol-drift check failed: src/protocol-types.ts differs from server main. Re-copy packages/protocol/src/index.ts, update the // Source: header SHA, and run npm run check:protocol. Run: $RUN_URL"
+          n=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body "Still drifting. $body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
