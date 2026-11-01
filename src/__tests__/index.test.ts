@@ -634,6 +634,124 @@ describe('AmbassadorClient', () => {
     });
   });
 
+  describe('tools/call result mapping', () => {
+    const mk = () =>
+      new AmbassadorClient({
+        server_url: 'https://ambassador.internal:8443',
+        preshared_key: 'amb_pk_test1234567890',
+      });
+    const call = async (resp: unknown) => {
+      const client = mk() as any;
+      vi.spyOn(client, 'httpRequest').mockResolvedValue(resp);
+      const respond = vi.spyOn(client, 'sendJsonRpcResponse').mockImplementation(() => {});
+      await client.handleToolsCall({
+        id: 1,
+        params: { name: 'github__delete_repo', arguments: {} },
+      });
+      return respond.mock.calls[0]![1] as Record<string, any>;
+    };
+    const base = { request_id: 'r', timestamp: 't' };
+
+    it('success stays isError:false', async () => {
+      const out = await call({ ...base, result: [{ type: 'text', text: 'ok' }] });
+      expect(out).toEqual({ content: [{ type: 'text', text: 'ok' }], isError: false });
+    });
+
+    it('a downstream error returned as a 200 is reported as an error', async () => {
+      const out = await call({
+        ...base,
+        result: [{ type: 'text', text: 'boom' }],
+        metadata: { is_error: true },
+      });
+      expect(out).toEqual({ content: [{ type: 'text', text: 'boom' }], isError: true });
+    });
+
+    it('passes structuredContent through when it is an object', async () => {
+      const out = await call({ ...base, result: [], structuredContent: { n: 1 } });
+      expect(out['structuredContent']).toEqual({ n: 1 });
+      expect(
+        (await call({ ...base, result: [], structuredContent: 'x' }))['structuredContent']
+      ).toBe(undefined);
+      expect(
+        (await call({ ...base, result: [], structuredContent: [1] }))['structuredContent']
+      ).toBe(undefined);
+    });
+
+    it('approval_required tells the agent to ask the user and retry the same call', async () => {
+      const result = {
+        status: 'approval_required',
+        approval_id: 'ap1',
+        expires_at: '2026-11-01T12:15:00Z',
+        retry_after_seconds: 15,
+        approval_url: 'https://amb.example:9443/app/approvals/ap1',
+      };
+      const out = await call({ ...base, result, metadata: { is_error: true } });
+      expect(out['isError']).toBe(true);
+      expect(out['structuredContent']).toEqual(result);
+      const text = out['content'][0].text as string;
+      expect(text).toContain('https://amb.example:9443/app/approvals/ap1');
+      expect(text).toMatch(/Ask the user to approve/);
+      expect(text).toMatch(/retry the same call/);
+    });
+
+    it.each([
+      [
+        { status: 'approval_denied', approval_id: 'ap1', retry_after_seconds: 3600 },
+        /denied.*3600s/,
+      ],
+      [{ status: 'approval_denied', approval_id: null, retry_after_seconds: 0 }, /denied/],
+      [{ status: 'approval_expired', approval_id: 'ap1' }, /expired.*new approval request/],
+      [{ status: 'approval_unavailable', reason: 'too_many_pending' }, /too many pending/],
+    ])('maps %j', async (result, re) => {
+      const out = await call({ ...base, result, metadata: { is_error: true } });
+      expect(out['isError']).toBe(true);
+      expect(out['structuredContent']).toEqual(result);
+      expect(out['content'][0].text).toMatch(re);
+    });
+
+    it('does not treat an approval-shaped result as approval unless is_error is set', async () => {
+      const result = { status: 'approval_expired', approval_id: 'ap1' };
+      const out = await call({ ...base, result });
+      expect(out).toEqual({ content: result, isError: false });
+    });
+
+    it('malformed approval results fall through as ordinary errors', async () => {
+      for (const result of [
+        { status: 'approval_required', approval_id: 'a' },
+        {
+          status: 'approval_required',
+          approval_id: 'a',
+          expires_at: 'e',
+          retry_after_seconds: -1,
+          approval_url: 'u',
+        },
+        { status: 'approval_mystery' },
+      ]) {
+        const out = await call({ ...base, result, metadata: { is_error: true } });
+        expect(out).toEqual({ content: result, isError: true });
+      }
+    });
+
+    it('strips control and bidi characters from server-supplied text', async () => {
+      const out = await call({
+        ...base,
+        result: {
+          status: 'approval_required',
+          approval_id: 'a\u202eb',
+          expires_at: 'soon',
+          retry_after_seconds: 1,
+          approval_url: 'https://x/\u0000\u200bapp\n',
+        },
+        metadata: { is_error: true },
+      });
+      const text = out['content'][0].text as string;
+      expect(text).toContain('https://x/app');
+      // eslint-disable-next-line no-control-regex
+      expect(text).not.toMatch(/[\u0000-\u001f\u200b-\u200f\u202e]/);
+      expect(out['structuredContent'].approval_id).toBe('ab');
+    });
+  });
+
   describe('tools/call policy denials', () => {
     const mk = () =>
       new AmbassadorClient({

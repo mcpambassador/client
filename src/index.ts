@@ -25,6 +25,7 @@ import type {
   ToolDescriptor,
 } from './protocol-types.js';
 import { assertHostTool } from './host-tools.js';
+import { approvalMessage, parseApprovalResult } from './approval-result.js';
 
 /**
  * Custom HTTP error class with structured error information
@@ -547,11 +548,28 @@ export class AmbassadorClient {
 
       const response = await this.invokeTool(request);
 
-      // Transform response to MCP format
-      this.sendJsonRpcResponse(message.id, {
-        content: response.result,
-        isError: false,
-      });
+      // The server reports a tool that ran but failed (and the approval states) as a 200 with
+      // metadata.is_error; the host must see that as an error, not as success.
+      const isError = response.metadata?.is_error === true;
+
+      // Approval results (ADR-023): validated, then turned into a short instruction for the agent plus
+      // the structured form. Anything malformed falls through as an ordinary error result.
+      const approval = isError ? parseApprovalResult(response.result) : null;
+      if (approval) {
+        this.sendJsonRpcResponse(message.id, {
+          content: [{ type: 'text', text: approvalMessage(approval) }],
+          structuredContent: approval,
+          isError: true,
+        });
+        return;
+      }
+
+      const out: Record<string, unknown> = { content: response.result, isError };
+      const structured = (response as { structuredContent?: unknown }).structuredContent;
+      if (typeof structured === 'object' && structured !== null && !Array.isArray(structured)) {
+        out['structuredContent'] = structured;
+      }
+      this.sendJsonRpcResponse(message.id, out);
     } catch (error) {
       // F-SEC-M6.6-003: Log detailed error to stderr, send generic message to host app
       console.error('[client] tools/call failed:', error);
