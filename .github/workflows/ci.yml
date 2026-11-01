@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Compare protocol types with server main
+      - name: Verify protocol types against the pinned server SHA
         run: node scripts/check-protocol.mjs
 
   validate-zero-deps:

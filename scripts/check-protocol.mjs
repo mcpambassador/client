@@ -1,13 +1,33 @@
 #!/usr/bin/env node
-// Fails if src/protocol-types.ts differs from packages/protocol/src/index.ts on
-// mcpambassador/server main. Leading "// Source:" header lines are ignored.
+// Verifies src/protocol-types.ts against packages/protocol/src/index.ts of mcpambassador/server.
+// Leading "// Source:" header lines are ignored in the comparison.
+//   (default)  compare against the SHA pinned in the header
+//              "// Source: mcpambassador/server packages/protocol/src/index.ts @ <sha>"  (blocking)
+//   --main     compare against server main (advisory: warns when the server moved on)
 // PROTOCOL_SOURCE=<local file or URL> overrides the upstream location.
 import { readFileSync } from 'node:fs';
 
-const DEFAULT_URL =
-  'https://raw.githubusercontent.com/mcpambassador/server/main/packages/protocol/src/index.ts';
-const source = process.env.PROTOCOL_SOURCE || DEFAULT_URL;
+const RAW = 'https://raw.githubusercontent.com/mcpambassador/server';
+const FILE = 'packages/protocol/src/index.ts';
 const localPath = new URL('../src/protocol-types.ts', import.meta.url);
+const localText = readFileSync(localPath, 'utf8');
+
+const useMain = process.argv.includes('--main');
+let source = process.env.PROTOCOL_SOURCE;
+if (!source) {
+  if (useMain) {
+    source = `${RAW}/main/${FILE}`;
+  } else {
+    const m = localText.match(/^\/\/ Source:.*@ ([0-9a-f]{7,40})\s*$/m);
+    if (!m) {
+      console.error(
+        'check:protocol: src/protocol-types.ts has no "// Source: ... @ <sha>" header to pin against.'
+      );
+      process.exit(2);
+    }
+    source = `${RAW}/${m[1]}/${FILE}`;
+  }
+}
 
 const normalize = text => {
   const lines = text.replace(/\r\n/g, '\n').split('\n');
@@ -27,7 +47,7 @@ if (/^https?:\/\//.test(source)) {
   upstream = readFileSync(source, 'utf8');
 }
 
-const a = normalize(readFileSync(localPath, 'utf8'));
+const a = normalize(localText);
 const b = normalize(upstream);
 if (a === b) {
   console.log('check:protocol: src/protocol-types.ts matches upstream.');
@@ -38,7 +58,9 @@ const al = a.split('\n');
 const bl = b.split('\n');
 let i = 0;
 while (i < al.length && i < bl.length && al[i] === bl[i]) i++;
-console.error('check:protocol: DRIFT — src/protocol-types.ts differs from upstream.');
+console.error(
+  `check:protocol: DRIFT — src/protocol-types.ts differs from ${useMain ? 'server main' : 'its pinned source'}.`
+);
 console.error(`First difference at line ${i + 1}:`);
 console.error(`  local:    ${al[i] ?? '<EOF>'}`);
 console.error(`  upstream: ${bl[i] ?? '<EOF>'}`);

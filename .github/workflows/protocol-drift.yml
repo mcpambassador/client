@@ -1,0 +1,23 @@
+name: Protocol Drift (advisory)
+
+# Non-blocking: warns when src/protocol-types.ts has fallen behind server main.
+# The blocking check (pinned SHA) lives in ci.yml.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  drift-vs-main:
+    name: Protocol types vs server main
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Compare with server main
+        run: node scripts/check-protocol.mjs --main
