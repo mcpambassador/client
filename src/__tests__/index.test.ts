@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AmbassadorClient } from '../index.js';
+import { AmbassadorClient, HttpError } from '../index.js';
 import https from 'https';
 
 // Mock https module
@@ -631,6 +631,48 @@ describe('AmbassadorClient', () => {
       const secondCatalog = await client.getToolCatalog();
       expect(secondCatalog.tools).toHaveLength(1);
       expect(secondCatalog.tools?.[0]?.name).toBe('cached-tool');
+    });
+  });
+
+  describe('tools/call policy denials', () => {
+    const mk = () =>
+      new AmbassadorClient({
+        server_url: 'https://ambassador.internal:8443',
+        preshared_key: 'amb_pk_test1234567890',
+      });
+
+    it('surfaces a 403 kill-switch denial as an MCP tool error without re-registering', async () => {
+      const client = mk() as any;
+      const register = vi.spyOn(client, 'register');
+      const http = vi
+        .spyOn(client, 'httpRequest')
+        .mockRejectedValue(new HttpError(403, 'forbidden', 'Tool disabled by kill switch', '{}'));
+      const respond = vi.spyOn(client, 'sendJsonRpcResponse').mockImplementation(() => {});
+      const fail = vi.spyOn(client, 'sendJsonRpcError').mockImplementation(() => {});
+
+      await client.handleToolsCall({ id: 7, params: { name: 'echo__echo', arguments: {} } });
+
+      expect(respond).toHaveBeenCalledWith(7, {
+        content: [{ type: 'text', text: 'Tool disabled by kill switch' }],
+        isError: true,
+      });
+      expect(fail).not.toHaveBeenCalled();
+      expect(http).toHaveBeenCalledTimes(1);
+      expect(register).not.toHaveBeenCalled();
+    });
+
+    it('keeps other failures generic', async () => {
+      const client = mk() as any;
+      vi.spyOn(client, 'httpRequest').mockRejectedValue(
+        new HttpError(500, 'internal', 'db path /var/secret', '{}')
+      );
+      const respond = vi.spyOn(client, 'sendJsonRpcResponse').mockImplementation(() => {});
+      const fail = vi.spyOn(client, 'sendJsonRpcError').mockImplementation(() => {});
+
+      await client.handleToolsCall({ id: 8, params: { name: 'x', arguments: {} } });
+
+      expect(respond).not.toHaveBeenCalled();
+      expect(fail).toHaveBeenCalledWith(8, -32603, 'Tool invocation failed');
     });
   });
 });
