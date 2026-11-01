@@ -104,6 +104,12 @@ interface CachedCatalog {
  * M6.6: stdio-based MCP server that proxies to Ambassador Server
  */
 export class AmbassadorClient {
+  /** Server 403 messages on /v1/tools/invoke that are safe and useful to show the host. */
+  private static readonly KNOWN_403_MESSAGES = new Set([
+    'Tool disabled by kill switch',
+    'Access denied',
+  ]);
+
   // F-SEC-M6.6-002: Buffer size limits to prevent OOM
   private static readonly MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
   private static readonly MAX_MESSAGE_SIZE = 1 * 1024 * 1024; // 1MB
@@ -548,11 +554,14 @@ export class AmbassadorClient {
       // F-SEC-M6.6-003: Log detailed error to stderr, send generic message to host app
       console.error('[client] tools/call failed:', error);
 
-      // 403 = server policy denial (e.g. "Tool disabled by kill switch"). The message is a
-      // deliberate server-authored string, so surface it as an MCP tool error the model/user can read.
+      // 403 = server policy denial. Only known, server-authored messages are passed through to the
+      // host (as an MCP tool error); any other 403 body gets a generic message.
       if (error instanceof HttpError && error.statusCode === 403) {
+        const known =
+          error.errorCode === 'Forbidden' &&
+          AmbassadorClient.KNOWN_403_MESSAGES.has(error.errorMessage);
         this.sendJsonRpcResponse(message.id, {
-          content: [{ type: 'text', text: error.errorMessage.slice(0, 500) }],
+          content: [{ type: 'text', text: known ? error.errorMessage : 'Tool not permitted' }],
           isError: true,
         });
         return;

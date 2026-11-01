@@ -646,7 +646,7 @@ describe('AmbassadorClient', () => {
       const register = vi.spyOn(client, 'register');
       const http = vi
         .spyOn(client, 'httpRequest')
-        .mockRejectedValue(new HttpError(403, 'forbidden', 'Tool disabled by kill switch', '{}'));
+        .mockRejectedValue(new HttpError(403, 'Forbidden', 'Tool disabled by kill switch', '{}'));
       const respond = vi.spyOn(client, 'sendJsonRpcResponse').mockImplementation(() => {});
       const fail = vi.spyOn(client, 'sendJsonRpcError').mockImplementation(() => {});
 
@@ -659,6 +659,19 @@ describe('AmbassadorClient', () => {
       expect(fail).not.toHaveBeenCalled();
       expect(http).toHaveBeenCalledTimes(1);
       expect(register).not.toHaveBeenCalled();
+    });
+
+    it('replaces unknown 403 messages with a generic one', async () => {
+      const client = mk() as any;
+      vi.spyOn(client, 'httpRequest').mockRejectedValue(
+        new HttpError(403, 'Forbidden', 'rule 42 on /srv/internal denied', '{}')
+      );
+      const respond = vi.spyOn(client, 'sendJsonRpcResponse').mockImplementation(() => {});
+      await client.handleToolsCall({ id: 9, params: { name: 'x', arguments: {} } });
+      expect(respond).toHaveBeenCalledWith(9, {
+        content: [{ type: 'text', text: 'Tool not permitted' }],
+        isError: true,
+      });
     });
 
     it('keeps other failures generic', async () => {
