@@ -1,6 +1,6 @@
 {
   "name": "@mcpambassador/client",
-  "version": "0.8.0-beta.2",
+  "version": "0.9.1",
   "description": "MCP Ambassador Client - Lightweight HTTP/MCP proxy for developer workstations",
   "type": "module",
   "bin": {
@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist",
+    "check:protocol": "node scripts/check-protocol.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.{ts,json,md}\"",

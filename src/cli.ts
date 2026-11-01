@@ -12,6 +12,8 @@
 
 import { readFileSync } from 'fs';
 import { AmbassadorClient, type ClientConfig } from './index.js';
+import { VERSION } from './version.js';
+import { HOST_TOOLS, isHostTool } from './host-tools.js';
 
 function configureStderrLogging(): void {
   const write = (level: string, args: unknown[]) => {
@@ -106,7 +108,7 @@ function parseArgs(): {
         cacheTtl = parsed;
       }
     } else if (arg === '--version' || arg === '-v') {
-      process.stdout.write('mcpambassador-client 0.1.0\n');
+      process.stdout.write(`mcpambassador-client ${VERSION}\n`);
       process.exit(0);
     } else if (arg === '--help' || arg === '-h') {
       process.stdout.write(`
@@ -229,12 +231,19 @@ async function main(): Promise<void> {
       server_url: serverUrl!,
       preshared_key: presharedKey,
       friendly_name: process.env.HOSTNAME || undefined,
-      host_tool: process.env.MCP_AMBASSADOR_HOST_TOOL || undefined,
+      host_tool: (process.env.MCP_AMBASSADOR_HOST_TOOL as ClientConfig['host_tool']) || undefined, // server validates the enum
       allow_self_signed: allowSelfSigned,
       heartbeat_interval_seconds: heartbeatInterval,
       cache_ttl_seconds: cacheTtl,
       disable_cache: disableCache,
     };
+  }
+
+  if (config.host_tool !== undefined && !isHostTool(config.host_tool)) {
+    console.error(
+      `[client] Invalid host_tool "${String(config.host_tool)}". Valid values: ${HOST_TOOLS.join(', ')}`
+    );
+    process.exit(1);
   }
 
   // Create and initialize client

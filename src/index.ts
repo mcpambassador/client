@@ -10,11 +10,13 @@
  * @see Architecture §17 Client Resilience & Tool Catalog Caching
  */
 
+import { VERSION } from './version.js';
 import https from 'https';
 import http from 'http';
 import { IncomingMessage } from 'http';
 import { hostname } from 'os';
 import type {
+  HostTool,
   RegistrationRequest,
   RegistrationResponse,
   ToolCatalogResponse,
@@ -22,6 +24,7 @@ import type {
   ToolInvocationResponse,
   ToolDescriptor,
 } from './protocol-types.js';
+import { assertHostTool } from './host-tools.js';
 
 /**
  * Custom HTTP error class with structured error information
@@ -70,7 +73,7 @@ export interface ClientConfig {
   /** Friendly name for this client (default: hostname) */
   friendly_name?: string;
   /** Host tool identifier (default: 'vscode') */
-  host_tool?: string;
+  host_tool?: HostTool;
   /**
    * Heartbeat interval in seconds (default: 120, min: 15, max: 300)
    */
@@ -146,7 +149,9 @@ export class AmbassadorClient {
 
     // Set defaults
     this.config.friendly_name = config.friendly_name || hostname();
-    this.config.host_tool = config.host_tool || 'vscode';
+    const hostTool = config.host_tool ?? 'vscode';
+    assertHostTool(hostTool); // reject before registering: bad values count toward the server's per-IP lockout
+    this.config.host_tool = hostTool;
 
     // SEC-M16-F4: Bound heartbeat_interval_seconds (min: 15s, max: 300s)
     const MIN_HEARTBEAT = 15;
@@ -196,7 +201,7 @@ export class AmbassadorClient {
     const request: RegistrationRequest = {
       preshared_key: this.config.preshared_key,
       friendly_name: this.config.friendly_name!,
-      host_tool: this.config.host_tool! as any,
+      host_tool: this.config.host_tool!,
     };
 
     try {
@@ -557,7 +562,7 @@ export class AmbassadorClient {
       },
       serverInfo: {
         name: '@mcpambassador/client',
-        version: '0.1.0', // TODO: import from package.json once build supports it
+        version: VERSION,
       },
     });
   }

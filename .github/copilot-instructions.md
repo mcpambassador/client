@@ -5,7 +5,7 @@
 This is the **mcpambassador_client** repository — a lightweight npm package (`@mcpambassador/client`) that acts as an stdio MCP proxy on developer workstations. It connects to the Ambassador Server and proxies MCP calls from AI tools (VS Code, Claude Desktop, etc.).
 
 **Stack:** TypeScript strict, zero production dependencies, Node.js 20+, Vitest  
-**Version:** 0.8.0-beta.1
+**Version:** 0.9.1
 
 ## Critical Constraint: Zero Production Dependencies
 
