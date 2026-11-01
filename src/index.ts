@@ -552,9 +552,14 @@ export class AmbassadorClient {
       // metadata.is_error; the host must see that as an error, not as success.
       const isError = response.metadata?.is_error === true;
 
-      // Approval results (ADR-023): validated, then turned into a short instruction for the agent plus
-      // the structured form. Anything malformed falls through as an ordinary error result.
-      const approval = isError ? parseApprovalResult(response.result) : null;
+      // Approval results (ADR-023) come only from the pipeline-set metadata.approval, never from
+      // `result` (a downstream tool controls that and could imitate an approval). Validated, then turned
+      // into a short instruction for the agent plus the structured form; malformed ones are ignored.
+      const rawApproval = (response.metadata as { approval?: unknown } | undefined)?.approval;
+      const approval =
+        isError && rawApproval !== undefined
+          ? parseApprovalResult(rawApproval, this.config.server_url)
+          : null;
       if (approval) {
         this.sendJsonRpcResponse(message.id, {
           content: [{ type: 'text', text: approvalMessage(approval) }],
