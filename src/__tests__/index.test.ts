@@ -710,6 +710,10 @@ describe('AmbassadorClient', () => {
       [{ status: 'approval_unavailable', reason: 'too_many_pending' }, /too many approval/],
       [{ status: 'approval_unavailable', reason: 'arguments_too_large' }, /too large/],
       [{ status: 'approval_unavailable', reason: 'rate_limited' }, /too fast/],
+      [
+        { status: 'approval_unavailable', reason: 'not_supported_for_client' },
+        /connection type cannot/,
+      ],
     ])('maps %j', async (approval, re) => {
       const out = await call(viaPipeline(approval));
       expect(out['isError']).toBe(true);
