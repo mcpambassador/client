@@ -14,6 +14,8 @@ const UNAVAILABLE_TEXT: Record<ApprovalUnavailableReason, string> = {
   arguments_too_large: 'the arguments are too large to be reviewed by a person',
   too_many_pending: 'too many approval requests are already waiting',
   rate_limited: 'approval requests are being created too fast',
+  not_supported_for_client:
+    'this connection type cannot be used for tools that need human approval',
 };
 const UNAVAILABLE_REASONS = Object.keys(UNAVAILABLE_TEXT) as ApprovalUnavailableReason[];
 
@@ -34,7 +36,8 @@ export type ApprovalResult =
       approval_url?: string;
     });
 
-const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
+/** Mirrors APPROVAL_ID_PATTERN in server @mcpambassador/contracts; pinned by a test. */
+export const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
 
 const id = (v: unknown): string | null => (typeof v === 'string' && ID_RE.test(v) ? v : null);
