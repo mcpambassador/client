@@ -1,3 +1,5 @@
+import type { ToolApprovalResult } from './protocol-types.js';
+
 /**
  * Agent-facing approval results (server ADR-023).
  *
@@ -7,23 +9,30 @@
  * timestamps, fixed reason codes, a same-host URL) so nothing free-form reaches the host agent.
  */
 
+// Exhaustive over the protocol's reason set: adding or removing a reason server-side breaks the build here.
+const UNAVAILABLE_TEXT: Record<ApprovalUnavailableReason, string> = {
+  arguments_too_large: 'the arguments are too large to be reviewed by a person',
+  too_many_pending: 'too many approval requests are already waiting',
+  rate_limited: 'approval requests are being created too fast',
+};
+const UNAVAILABLE_REASONS = Object.keys(UNAVAILABLE_TEXT) as ApprovalUnavailableReason[];
+
+/** Mirrors APPROVAL_ID_PATTERN and APPROVAL_SPA_PATH_PREFIX in server @mcpambassador/contracts (not importable here). */
 export const APPROVALS_PATH_PREFIX = '/app/approvals/';
 
-const UNAVAILABLE_REASONS = ['arguments_too_large', 'too_many_pending', 'rate_limited'] as const;
-export type ApprovalUnavailableReason = (typeof UNAVAILABLE_REASONS)[number];
+/** Reason codes and the approval shape come from the vendored protocol types (a server change fails the build). */
+type Approval = ToolApprovalResult;
+export type ApprovalUnavailableReason = Extract<
+  Approval,
+  { status: 'approval_unavailable' }
+>['reason'];
 
 export type ApprovalResult =
-  | {
-      status: 'approval_required';
-      approval_id: string;
-      expires_at: string;
-      retry_after_seconds: number;
+  | Exclude<Approval, { status: 'approval_required' }>
+  | (Omit<Extract<Approval, { status: 'approval_required' }>, 'approval_url'> & {
       /** Present only when it points at this server's approvals page for this request. */
       approval_url?: string;
-    }
-  | { status: 'approval_denied'; approval_id: string | null; retry_after_seconds: number }
-  | { status: 'approval_expired'; approval_id: string }
-  | { status: 'approval_unavailable'; reason: ApprovalUnavailableReason };
+    });
 
 const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
@@ -96,12 +105,6 @@ export function parseApprovalResult(value: unknown, serverUrl: string): Approval
       return null;
   }
 }
-
-const UNAVAILABLE_TEXT: Record<ApprovalUnavailableReason, string> = {
-  arguments_too_large: 'the arguments are too large to be reviewed by a person',
-  too_many_pending: 'too many approval requests are already waiting',
-  rate_limited: 'approval requests are being created too fast',
-};
 
 /** One short line for the host agent: what happened and what to do next. */
 export function approvalMessage(a: ApprovalResult): string {

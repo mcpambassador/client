@@ -1,4 +1,4 @@
-// Source: mcpambassador/server packages/protocol/src/index.ts @ e22e374
+// Source: mcpambassador/server packages/protocol/src/index.ts @ e52b567
 /**
  * @mcpambassador/protocol
  *
@@ -170,6 +170,28 @@ export interface ToolInvocationRequest {
 }
 
 /**
+ * Approval outcome for a gated call (ADR-023). Set ONLY by the Ambassador pipeline in
+ * `ToolInvocationResponse.metadata.approval`; never copied from downstream output, so a client may
+ * trust its presence (and must still validate every field: ids, ISO time, reason enum, same-host URL).
+ * Mirrors `ApprovalToolResult` in @mcpambassador/contracts.
+ */
+export type ToolApprovalResult =
+  | {
+      status: 'approval_required';
+      approval_id: string;
+      expires_at: string;
+      retry_after_seconds: number;
+      /** Absolute `<ui-origin>/app/approvals/<approval_id>`; same hostname as the server. */
+      approval_url: string;
+    }
+  | { status: 'approval_denied'; approval_id: string | null; retry_after_seconds: number }
+  | { status: 'approval_expired'; approval_id: string }
+  | {
+      status: 'approval_unavailable';
+      reason: 'arguments_too_large' | 'too_many_pending' | 'rate_limited';
+    };
+
+/**
  * Tool invocation response
  */
 export interface ToolInvocationResponse {
@@ -189,6 +211,8 @@ export interface ToolInvocationResponse {
     error?: string;
     /** Whether the invocation resulted in an error */
     is_error?: boolean;
+    /** Approval state of a gated call (ADR-023). Pipeline-set only; implies is_error: true. */
+    approval?: ToolApprovalResult;
   };
 }
 
