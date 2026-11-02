@@ -73,6 +73,8 @@ The client accepts a JSON configuration file. A template is provided at `amb-cli
 }
 ```
 
+`allow_self_signed: true` disables TLS certificate verification. Use it for local development only; in production, leave it `false` and serve a certificate from a trusted CA.
+
 Copy and configure:
 
 ```bash
