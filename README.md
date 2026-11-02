@@ -14,6 +14,8 @@ The Ambassador Client is the only MCP you install on your workstation. It connec
 npm install -g @mcpambassador/client
 ```
 
+From source: see [Development](#development).
+
 Or with npx (zero install):
 
 ```bash
