@@ -189,10 +189,7 @@ export type ToolApprovalResult =
   | {
       status: 'approval_unavailable';
       reason:
-        | 'arguments_too_large'
-        | 'too_many_pending'
-        | 'rate_limited'
-        | 'not_supported_for_client';
+        'arguments_too_large' | 'too_many_pending' | 'rate_limited' | 'not_supported_for_client';
     };
 
 /**
