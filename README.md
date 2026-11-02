@@ -85,8 +85,8 @@ Note: `amb-client-config.json` is gitignored. Never commit configuration files c
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MCP_AMBASSADOR_URL` | Yes | -- | Server URL (e.g., `https://your-server:8443`) |
-| `MCP_AMBASSADOR_PRESHARED_KEY` | Yes | -- | Client preshared key (`amb_pk_...`) |
+| `MCP_AMBASSADOR_URL` | Yes (when not using `--config`) | -- | Server URL (e.g., `https://your-server:8443`) |
+| `MCP_AMBASSADOR_PRESHARED_KEY` | Yes (when not using `--config`) | -- | Client preshared key (`amb_pk_...`) |
 | `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` | No | `false` | Allow self-signed TLS certificates (dev only) |
 | `MCP_AMBASSADOR_HOST_TOOL` | No | `vscode` | Host tool identifier |
 | `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No | `120` | Heartbeat interval in seconds |
