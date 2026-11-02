@@ -1,0 +1,2 @@
+# byte mirror of server packages/protocol; formatted upstream, checked by Protocol Drift Check
+src/protocol-types.ts
