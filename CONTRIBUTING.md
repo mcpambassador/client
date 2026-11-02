@@ -124,6 +124,10 @@ stdout is RESERVED for MCP JSON-RPC protocol messages. All logging, diagnostics,
 
 Conventional commit format is recommended (feat:, fix:, docs:) but not enforced.
 
+## Publishing
+
+Maintainers only. Bump `version` in `package.json` via a PR and merge it to `main`, then run the **Publish to npm** workflow from `main` (Actions > Run workflow) with the same version and dist-tag (`latest` for stable, `beta`/`next` for prereleases). A maintainer must approve the `npm-publish` environment. The workflow publishes through npm Trusted Publishing, then pushes tag `v<version>`. If the tag push fails after a successful publish, push it manually: `git tag v<version> <published-commit-sha> && git push origin v<version>`.
+
 ## Review Process
 
 Review timelines are aligned with the server repo:

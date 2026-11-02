@@ -8,26 +8,69 @@ on:
         required: true
         type: string
       tag:
-        description: 'npm dist-tag'
+        description: 'npm dist-tag (prerelease versions must use beta/next; stable versions must use latest)'
         required: true
-        default: 'beta'
+        default: 'latest'
         type: choice
         options:
           - beta
           - latest
           - next
 
-jobs:
-  validate-and-publish:
-    name: Validate & Publish
-    runs-on: ubuntu-latest
-    environment: npm-publish
-    permissions:
-      contents: write # push the v<version> tag only
-      id-token: write # npm Trusted Publishing (OIDC) + provenance
+permissions: {}
 
+jobs:
+  build:
+    name: Validate & Pack
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify version, dist-tag, and that nothing is published yet
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$INPUT_VERSION" != "$PKG_VERSION" ]; then
+            echo "ERROR: inputs.version ($INPUT_VERSION) != package.json version ($PKG_VERSION). Bump the version via PR first."
+            exit 1
+          fi
+          case "$PKG_VERSION" in
+            *-*)
+              if [ "$INPUT_TAG" = "latest" ]; then
+                echo "ERROR: prerelease $PKG_VERSION must not use dist-tag 'latest'."
+                exit 1
+              fi ;;
+            *)
+              if [ "$INPUT_TAG" != "latest" ]; then
+                echo "ERROR: stable $PKG_VERSION must use dist-tag 'latest', not '$INPUT_TAG'."
+                exit 1
+              fi ;;
+          esac
+          set +e
+          OUT=$(npm view "@mcpambassador/client@$PKG_VERSION" version 2>&1)
+          RC=$?
+          set -e
+          if [ "$RC" -eq 0 ] && [ -n "$OUT" ]; then
+            echo "ERROR: @mcpambassador/client@$PKG_VERSION already exists on npm."
+            exit 1
+          elif [ "$RC" -ne 0 ] && ! printf '%s' "$OUT" | grep -q 'E404'; then
+            echo "ERROR: could not determine npm publish state (not a 404):"
+            echo "$OUT"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags "https://github.com/${GITHUB_REPOSITORY}" "refs/tags/v$PKG_VERSION" >/dev/null 2>&1; then
+            echo "ERROR: tag v$PKG_VERSION already exists."
+            exit 1
+          fi
 
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
         with:
@@ -37,30 +80,6 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-
-      # Trusted Publishing needs npm >= 11.5.1; Node 20 bundles npm 10.
-      - name: Upgrade npm for Trusted Publishing
-        run: |
-          npm install -g npm@11.5.1
-          npm --version
-
-      - name: Verify version matches package.json and is unpublished
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          if [ "$INPUT_VERSION" != "$PKG_VERSION" ]; then
-            echo "ERROR: inputs.version ($INPUT_VERSION) != package.json version ($PKG_VERSION). Bump the version via PR first."
-            exit 1
-          fi
-          if npm view "@mcpambassador/client@$PKG_VERSION" version >/dev/null 2>&1; then
-            echo "ERROR: @mcpambassador/client@$PKG_VERSION already exists on npm."
-            exit 1
-          fi
-          if git ls-remote --exit-code --tags origin "refs/tags/v$PKG_VERSION" >/dev/null 2>&1; then
-            echo "ERROR: tag v$PKG_VERSION already exists."
-            exit 1
-          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -80,16 +99,70 @@ jobs:
           pnpm test
           pnpm build
 
+      - name: Pack tarball
+        id: pack
+        run: |
+          mkdir -p out
+          npm pack --pack-destination out
+          FILE=$(ls out)
+          echo "tarball=$FILE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-tarball
+          path: out/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to npm
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # npm Trusted Publishing (OIDC) + provenance
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+
+      # Trusted Publishing needs npm >= 11.5.1; Node 20 bundles npm 10.
+      - name: Upgrade npm for Trusted Publishing
+        run: |
+          npm install -g npm@11.5.1
+          npm --version
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-tarball
+          path: out
+
       - name: Publish (Trusted Publishing, provenance automatic)
         env:
-          NPM_TAG: ${{ inputs.tag }}
-        run: npm publish --tag "$NPM_TAG" --access public
+          INPUT_TAG: ${{ inputs.tag }}
+          TARBALL: ${{ needs.build.outputs.tarball }}
+        run: npm publish "./out/$TARBALL" --tag "$INPUT_TAG" --access public
 
-      - name: Push release tag
+  tag:
+    name: Push release tag
+    if: github.ref == 'refs/heads/main'
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the v<version> tag only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Push tag
         env:
+          GH_TOKEN: ${{ github.token }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v$INPUT_VERSION"
-          git push origin "refs/tags/v$INPUT_VERSION"
+          git tag "v$INPUT_VERSION" "$GITHUB_SHA"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" "refs/tags/v$INPUT_VERSION"
