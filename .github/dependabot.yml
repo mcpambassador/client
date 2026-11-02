@@ -1,28 +1,45 @@
 version: 2
 updates:
-  # npm package — devDependencies only (prod deps must be zero)
+  # npm: one monthly PR for all minor+patch; majors come individually.
+  # Security updates ignore this schedule and grouping.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: "monthly"
     open-pull-requests-limit: 5
-    # Only update devDependencies — never add prod deps
+    cooldown:
+      default-days: 7
     allow:
       - dependency-type: "development"
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # CI and runtime are Node 20; stay on the Node 20 typings
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "automated"
     commit-message:
       prefix: "chore(deps-dev)"
 
-  # GitHub Actions
+  # GitHub Actions: one monthly grouped PR
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "area: ci"
