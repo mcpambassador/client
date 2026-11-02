@@ -1,189 +1,112 @@
 # MCP Ambassador Client
 
-A lightweight stdio MCP proxy that connects any MCP-compatible AI tool to an MCP Ambassador server. Install once -- tools appear automatically.
+[![CI](https://github.com/mcpambassador/client/actions/workflows/ci.yml/badge.svg)](https://github.com/mcpambassador/client/actions/workflows/ci.yml) ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg) ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg) [![Website](https://img.shields.io/badge/docs-mcpambassador.ai-blue.svg)](https://mcpambassador.ai)
 
-![CI](https://github.com/mcpambassador/client/actions/workflows/ci.yml/badge.svg) [![npm](https://img.shields.io/npm/v/@mcpambassador/client.svg)](https://www.npmjs.com/package/@mcpambassador/client) ![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg) ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg) [![Website](https://img.shields.io/badge/docs-mcpambassador.ai-blue.svg)](https://mcpambassador.ai)
+The one stdio MCP you install on a workstation. It registers with an [MCP Ambassador Server](https://github.com/mcpambassador/server) and exposes the tools your admin has published to you as native tools in your AI client.
 
-## What Is This
+## Install (from source)
 
-The Ambassador Client is the only MCP you install on your workstation. It connects to an MCP Ambassador Server and dynamically discovers all the tools your admin has published for you. Tools from dozens of downstream MCPs appear as native tools in your AI client. No per-tool installation, no credential management, no configuration drift.
-
-## Install
+The package is **not published to npm yet**: npm only has `0.8.0-beta.2`, which is out of date. Until publishing is set up, build from source (Node.js 20+):
 
 ```bash
-npm install -g @mcpambassador/client
+git clone https://github.com/mcpambassador/client.git
+cd client
+npm install && npm run build
 ```
 
-Or with npx (zero install):
+The executable is `dist/cli.js` (bin name `mcpambassador-client`). Use its absolute path in the examples below.
 
-```bash
-npx @mcpambassador/client --config /path/to/config.json
-```
+## Configure
 
-## Quick Start
+You need the server URL (port 8443) and a preshared key (`amb_pk_...`) from your admin or the server's web portal.
 
-**VS Code** -- add to your VS Code settings or `.vscode/mcp.json`:
+Environment variables:
+
+| Variable                            | Required | Default  | Description                                 |
+| ----------------------------------- | -------- | -------- | ------------------------------------------- |
+| `MCP_AMBASSADOR_URL`                | yes      |          | Server URL, e.g. `https://your-server:8443` |
+| `MCP_AMBASSADOR_PRESHARED_KEY`      | yes      |          | Preshared key (`amb_pk_...`)                |
+| `MCP_AMBASSADOR_HOST_TOOL`          | no       | `vscode` | Name of the host tool, shown on the server  |
+| `MCP_AMBASSADOR_ALLOW_SELF_SIGNED`  | no       | `false`  | Accept self-signed TLS (dev only)           |
+| `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | no       | `120`    | Heartbeat seconds (15-300)                  |
+| `MCP_AMBASSADOR_CACHE_TTL`          | no       | `300`    | Tool catalog cache seconds (`0` disables)   |
+| `MCP_AMBASSADOR_DISABLE_CACHE`      | no       | `false`  | `true` disables the catalog cache           |
+
+Or a JSON file (`--config`), based on [`amb-client-config.example.json`](./amb-client-config.example.json):
 
 ```json
 {
-  "mcp.servers": {
-    "mcpambassador": {
-      "command": "npx",
-      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
-      "env": {
-        "MCP_AMBASSADOR_URL": "https://your-server:8443",
-        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
-      }
-    }
-  }
+  "server_url": "https://your-server:8443",
+  "preshared_key": "amb_pk_CHANGE_ME_AFTER_REGISTRATION",
+  "friendly_name": "my-client",
+  "host_tool": "vscode",
+  "heartbeat_interval_seconds": 120,
+  "cache_ttl_seconds": 300,
+  "allow_self_signed": false
 }
 ```
 
-**Claude Desktop** -- add to `claude_desktop_config.json`:
+`cp amb-client-config.example.json amb-client-config.json` and edit it. That file is gitignored: never commit keys.
+
+## Add to your AI tool
+
+Claude Desktop (`claude_desktop_config.json`); other MCP hosts use the same command and env:
 
 ```json
 {
   "mcpServers": {
     "mcpambassador": {
-      "command": "npx",
-      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
+      "command": "node",
+      "args": ["/absolute/path/to/client/dist/cli.js"],
       "env": {
         "MCP_AMBASSADOR_URL": "https://your-server:8443",
-        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
+        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY",
+        "MCP_AMBASSADOR_HOST_TOOL": "claude-desktop"
       }
     }
   }
 }
 ```
 
-**Any MCP Host** -- the generic pattern:
+VS Code (`.vscode/mcp.json`) takes the same `command`, `args` and `env`. Add `"--config", "/path/to/amb-client-config.json"` to `args` to use a file instead of env vars.
+
+## CLI
 
 ```
-command: npx -y @mcpambassador/client --config /path/to/amb-client-config.json
-env: MCP_AMBASSADOR_URL=https://your-server:8443
-env: MCP_AMBASSADOR_PRESHARED_KEY=amb_pk_YOUR_KEY
+mcpambassador-client --server <url> | --config <path>
+  --allow-self-signed          Accept self-signed TLS (dev/test only)
+  --heartbeat-interval <sec>   Default 120
+  --cache-ttl <sec>            Default 300
+  --version, -v   --help, -h
 ```
 
-## Configuration
+## How it works
 
-The client accepts a JSON configuration file. A template is provided at `amb-client-config.example.json`:
+1. Registers with the server using the preshared key and receives an ephemeral session and the tool catalog.
+2. Serves that catalog over stdio; tool calls are forwarded to the server, which applies authorization, pinning, kill switches, approval gates and audit.
+3. A heartbeat keeps the session alive. On `session_expired` the client re-registers; on `session_suspended` it tries to reconnect. SIGINT/SIGTERM do a best-effort disconnect.
 
-```json
-{
-  "server_url": "https://ambassador.internal:8443",
-  "preshared_key": "amb_pk_...",
-  "friendly_name": "my-workstation",
-  "host_tool": "vscode",
-  "heartbeat_interval_seconds": 120,
-  "allow_self_signed": true
-}
-```
-
-Copy and configure:
-
-```bash
-cp amb-client-config.example.json amb-client-config.json
-```
-
-Note: `amb-client-config.json` is gitignored. Never commit configuration files containing credentials.
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `MCP_AMBASSADOR_URL` | Yes | -- | Server URL (e.g., `https://your-server:8443`) |
-| `MCP_AMBASSADOR_PRESHARED_KEY` | Yes | -- | Client preshared key (`amb_pk_...`) |
-| `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` | No | `false` | Allow self-signed TLS certificates (dev only) |
-| `MCP_AMBASSADOR_HOST_TOOL` | No | `vscode` | Host tool identifier |
-| `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No | `120` | Heartbeat interval in seconds |
-
-## CLI Usage
-
-```
-mcpambassador-client --server <url>
-mcpambassador-client --config <path>
-
-Options:
-  --server <url>               Ambassador Server URL
-  --config <path>              Path to JSON config file
-  --allow-self-signed          Allow self-signed TLS certificates (dev/test only)
-  --heartbeat-interval <sec>   Heartbeat interval in seconds (default: 120)
-  --cache-ttl <sec>            Tool catalog cache TTL in seconds (default: 300)
-  --help, -h                   Show help
-```
-
-## How It Works
-
-- Client registers with the server using a preshared key
-- Server returns an ephemeral session token and the tool catalog
-- Client exposes discovered tools as native MCP tools via stdio
-- The host AI tool (VS Code, Claude Desktop) sees tools as if they were local
-- Heartbeat keeps the session alive; the tool catalog refreshes automatically
-
-## Session Lifecycle
-
-- Sessions are ephemeral and stored in memory only
-- If the server returns 401 with `session_expired`, the client automatically re-registers
-- If the server returns 401 with `session_suspended`, the client attempts to reconnect
-- On SIGINT/SIGTERM, the client performs a best-effort disconnect (2-second timeout)
-
-## Requirements
-
-- Node.js 20 or later
-- An MCP Ambassador server ([server repo](https://github.com/mcpambassador/server))
-- A preshared key (obtained from the server admin or the self-service portal)
+Sessions live in memory only. Tools that the server hides, gates, or has switched off do not appear or are refused by the server; the client holds no policy of its own.
 
 ## Development
 
 ```bash
-pnpm install
-pnpm build
-pnpm test
-pnpm typecheck
-pnpm lint
+npm install && npm run build && npm run lint && npm run format:check && npm run typecheck && npm test
 ```
 
-## Related Projects
+The client has no runtime dependencies and mirrors the wire types in the server's `protocol` package (`npm run check:protocol`). See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-| Project | Description |
-|---------|-------------|
-| [MCP Ambassador Server](https://github.com/mcpambassador/server) | Centralized MCP governance server |
-| [Community Registry](https://github.com/mcpambassador/community-registry) | Curated registry of 38+ MCP configurations |
-| [Documentation](https://mcpambassador.ai) | Full documentation, guides, and API reference |
+## Related
 
-## License
-
-Apache License 2.0 -- see [LICENSE](./LICENSE).
-
-## Contributing
-
-We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including the zero-dependency requirement that applies to all changes.
-
-## Performance Tuning
-
-The client exposes several timing parameters that affect server load and responsiveness:
-
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `heartbeat_interval_seconds` | 120 | 15–300 | How often the client pings the server to keep the session alive. Higher values reduce server traffic. |
-| `cache_ttl_seconds` | 300 | 0+ | How long the tool catalog is cached locally. Set to 0 to disable caching. |
-
-### Deployment profiles
-
-| Profile | Heartbeat | Cache TTL | Notes |
-|---------|-----------|-----------|-------|
-| Solo developer | 120s (default) | 300s (default) | Works out of the box |
-| Small team (5–10 devs) | 120s | 300s | Default settings are fine |
-| Large org (50–100 devs) | 180s | 600s | Reduces server load at scale |
-
-All settings are configurable via CLI flags, environment variables, or the JSON config file.
+[Server](https://github.com/mcpambassador/server) · [Community registry](https://github.com/mcpambassador/community-registry) · [Docs](https://mcpambassador.ai/docs) · [Client docs](https://mcpambassador.ai/docs/clients)
 
 ## Support
 
-MCP Ambassador is free and open source. If it's useful to you, consider supporting development.
+Free and open source. Sponsor: https://github.com/sponsors/mcpambassador
 
-Support via GitHub Sponsors: https://github.com/sponsors/mcpambassador
-
-Crypto donations:
 - Bitcoin: `3QH4WQoQqnhU3LhbZQU8ttXaNco5Ge3xVp`
 - Ethereum: `0xa5462444c5AEf0B2e32822D9a9B7f91aC794FfF0`
+
+## License
+
+Apache License 2.0, see [LICENSE](./LICENSE).
