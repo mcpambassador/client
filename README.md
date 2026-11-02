@@ -24,6 +24,8 @@ npx @mcpambassador/client --config /path/to/config.json
 
 ## Quick Start
 
+Create a config file (see [Configuration](#configuration)) holding at least `server_url` and `preshared_key`, and restrict it with `chmod 600`. With `--config`, the client reads everything from that file and ignores environment variables and other flags.
+
 **VS Code** -- add to your VS Code settings or `.vscode/mcp.json`:
 
 ```json
@@ -31,11 +33,7 @@ npx @mcpambassador/client --config /path/to/config.json
   "mcp.servers": {
     "mcpambassador": {
       "command": "npx",
-      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
-      "env": {
-        "MCP_AMBASSADOR_URL": "https://your-server:8443",
-        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
-      }
+      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"]
     }
   }
 }
@@ -48,11 +46,7 @@ npx @mcpambassador/client --config /path/to/config.json
   "mcpServers": {
     "mcpambassador": {
       "command": "npx",
-      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
-      "env": {
-        "MCP_AMBASSADOR_URL": "https://your-server:8443",
-        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
-      }
+      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"]
     }
   }
 }
@@ -62,8 +56,6 @@ npx @mcpambassador/client --config /path/to/config.json
 
 ```
 command: npx -y @mcpambassador/client --config /path/to/amb-client-config.json
-env: MCP_AMBASSADOR_URL=https://your-server:8443
-env: MCP_AMBASSADOR_PRESHARED_KEY=amb_pk_YOUR_KEY
 ```
 
 ## Configuration
@@ -81,6 +73,8 @@ The client accepts a JSON configuration file. A template is provided at `amb-cli
 }
 ```
 
+`allow_self_signed: true` disables TLS certificate verification. Use it for local development only; in production, leave it `false` and serve a certificate from a trusted CA.
+
 Copy and configure:
 
 ```bash
@@ -93,8 +87,8 @@ Note: `amb-client-config.json` is gitignored. Never commit configuration files c
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MCP_AMBASSADOR_URL` | Yes | -- | Server URL (e.g., `https://your-server:8443`) |
-| `MCP_AMBASSADOR_PRESHARED_KEY` | Yes | -- | Client preshared key (`amb_pk_...`) |
+| `MCP_AMBASSADOR_URL` | Yes (when not using `--config`) | -- | Server URL (e.g., `https://your-server:8443`) |
+| `MCP_AMBASSADOR_PRESHARED_KEY` | Yes (when not using `--config`) | -- | Client preshared key (`amb_pk_...`) |
 | `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` | No | `false` | Allow self-signed TLS certificates (dev only) |
 | `MCP_AMBASSADOR_HOST_TOOL` | No | `vscode` | Host tool identifier |
 | `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No | `120` | Heartbeat interval in seconds |
