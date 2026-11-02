@@ -24,6 +24,8 @@ npx @mcpambassador/client --config /path/to/config.json
 
 ## Quick Start
 
+Create a config file (see [Configuration](#configuration)) holding at least `server_url` and `preshared_key`, and restrict it with `chmod 600`. With `--config`, the client reads everything from that file and ignores environment variables and other flags.
+
 **VS Code** -- add to your VS Code settings or `.vscode/mcp.json`:
 
 ```json
@@ -31,11 +33,7 @@ npx @mcpambassador/client --config /path/to/config.json
   "mcp.servers": {
     "mcpambassador": {
       "command": "npx",
-      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
-      "env": {
-        "MCP_AMBASSADOR_URL": "https://your-server:8443",
-        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
-      }
+      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"]
     }
   }
 }
@@ -48,11 +46,7 @@ npx @mcpambassador/client --config /path/to/config.json
   "mcpServers": {
     "mcpambassador": {
       "command": "npx",
-      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"],
-      "env": {
-        "MCP_AMBASSADOR_URL": "https://your-server:8443",
-        "MCP_AMBASSADOR_PRESHARED_KEY": "amb_pk_YOUR_KEY"
-      }
+      "args": ["-y", "@mcpambassador/client", "--config", "/path/to/amb-client-config.json"]
     }
   }
 }
@@ -62,8 +56,6 @@ npx @mcpambassador/client --config /path/to/config.json
 
 ```
 command: npx -y @mcpambassador/client --config /path/to/amb-client-config.json
-env: MCP_AMBASSADOR_URL=https://your-server:8443
-env: MCP_AMBASSADOR_PRESHARED_KEY=amb_pk_YOUR_KEY
 ```
 
 ## Configuration
