@@ -30,6 +30,6 @@ The `@mcpambassador/client` package must have **zero production dependencies**.
 ## Testing
 
 - [ ] Tests added/updated for this change
-- [ ] `pnpm test` passes on Node 20
+- [ ] `pnpm test` passes on Node 22
 - [ ] `pnpm typecheck` passes with no errors
 - [ ] `pnpm build` produces clean `dist/`

@@ -79,7 +79,7 @@ When you open a Pull Request:
 
 - Labels will be added based on files changed
 - If `package.json` changes, a `package-json-changed` label will flag zero-dependency review
-- CI will run: build, lint, typecheck, test (on Node 20 and Node 22)
+- CI will run: build, lint, typecheck, test (on Node 22 and Node 24)
 - A bundle size report comment compares your build to the base branch
 - Pull requests inactive for 14+ days are marked stale; 21+ days are auto-closed
 
