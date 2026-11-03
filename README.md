@@ -85,13 +85,13 @@ Note: `amb-client-config.json` is gitignored. Never commit configuration files c
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `MCP_AMBASSADOR_URL` | Yes (when not using `--config`) | -- | Server URL (e.g., `https://your-server:8443`) |
-| `MCP_AMBASSADOR_PRESHARED_KEY` | Yes (when not using `--config`) | -- | Client preshared key (`amb_pk_...`) |
-| `MCP_AMBASSADOR_ALLOW_SELF_SIGNED` | No | `false` | Allow self-signed TLS certificates (dev only) |
-| `MCP_AMBASSADOR_HOST_TOOL` | No | `vscode` | Host tool identifier |
-| `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No | `120` | Heartbeat interval in seconds |
+| Variable                            | Required                        | Default  | Description                                   |
+| ----------------------------------- | ------------------------------- | -------- | --------------------------------------------- |
+| `MCP_AMBASSADOR_URL`                | Yes (when not using `--config`) | --       | Server URL (e.g., `https://your-server:8443`) |
+| `MCP_AMBASSADOR_PRESHARED_KEY`      | Yes (when not using `--config`) | --       | Client preshared key (`amb_pk_...`)           |
+| `MCP_AMBASSADOR_ALLOW_SELF_SIGNED`  | No                              | `false`  | Allow self-signed TLS certificates (dev only) |
+| `MCP_AMBASSADOR_HOST_TOOL`          | No                              | `vscode` | Host tool identifier                          |
+| `MCP_AMBASSADOR_HEARTBEAT_INTERVAL` | No                              | `120`    | Heartbeat interval in seconds                 |
 
 ## CLI Usage
 
@@ -105,8 +105,14 @@ Options:
   --allow-self-signed          Allow self-signed TLS certificates (dev/test only)
   --heartbeat-interval <sec>   Heartbeat interval in seconds (default: 120)
   --cache-ttl <sec>            Tool catalog cache TTL in seconds (default: 300)
+  --log-file <path>            Append logs to a file (mode 0600) instead of stderr
+  --log-level <level>          debug, info, warn or error (default: debug = everything)
   --help, -h                   Show help
 ```
+
+### Logging
+
+By default the client logs to stderr, which MCP hosts capture (VS Code shows it in the output panel and may flag it as warnings). To keep that out of the host, set `--log-file <path>` (or `MCP_AMBASSADOR_LOG_FILE`): log lines are then appended to the file with an ISO timestamp, created with mode `0600` and never through a symlink. Fatal errors (`console.error`) are still written to stderr as well. If the file cannot be opened, the client warns on stderr and logs there instead. Use `--log-level warn` (or `MCP_AMBASSADOR_LOG_LEVEL`) to drop info and debug lines. The file is not rotated; point it at a location you manage.
 
 ## How It Works
 
@@ -141,11 +147,11 @@ pnpm lint
 
 ## Related Projects
 
-| Project | Description |
-|---------|-------------|
-| [MCP Ambassador Server](https://github.com/mcpambassador/server) | Centralized MCP governance server |
-| [Community Registry](https://github.com/mcpambassador/community-registry) | Curated registry of 38+ MCP configurations |
-| [Documentation](https://mcpambassador.ai) | Full documentation, guides, and API reference |
+| Project                                                                   | Description                                   |
+| ------------------------------------------------------------------------- | --------------------------------------------- |
+| [MCP Ambassador Server](https://github.com/mcpambassador/server)          | Centralized MCP governance server             |
+| [Community Registry](https://github.com/mcpambassador/community-registry) | Curated registry of 38+ MCP configurations    |
+| [Documentation](https://mcpambassador.ai)                                 | Full documentation, guides, and API reference |
 
 ## License
 
@@ -159,18 +165,18 @@ We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines,
 
 The client exposes several timing parameters that affect server load and responsiveness:
 
-| Setting | Default | Range | Description |
-|---------|---------|-------|-------------|
-| `heartbeat_interval_seconds` | 120 | 15–300 | How often the client pings the server to keep the session alive. Higher values reduce server traffic. |
-| `cache_ttl_seconds` | 300 | 0+ | How long the tool catalog is cached locally. Set to 0 to disable caching. |
+| Setting                      | Default | Range  | Description                                                                                           |
+| ---------------------------- | ------- | ------ | ----------------------------------------------------------------------------------------------------- |
+| `heartbeat_interval_seconds` | 120     | 15–300 | How often the client pings the server to keep the session alive. Higher values reduce server traffic. |
+| `cache_ttl_seconds`          | 300     | 0+     | How long the tool catalog is cached locally. Set to 0 to disable caching.                             |
 
 ### Deployment profiles
 
-| Profile | Heartbeat | Cache TTL | Notes |
-|---------|-----------|-----------|-------|
-| Solo developer | 120s (default) | 300s (default) | Works out of the box |
-| Small team (5–10 devs) | 120s | 300s | Default settings are fine |
-| Large org (50–100 devs) | 180s | 600s | Reduces server load at scale |
+| Profile                 | Heartbeat      | Cache TTL      | Notes                        |
+| ----------------------- | -------------- | -------------- | ---------------------------- |
+| Solo developer          | 120s (default) | 300s (default) | Works out of the box         |
+| Small team (5–10 devs)  | 120s           | 300s           | Default settings are fine    |
+| Large org (50–100 devs) | 180s           | 600s           | Reduces server load at scale |
 
 All settings are configurable via CLI flags, environment variables, or the JSON config file.
 
@@ -181,5 +187,6 @@ MCP Ambassador is free and open source. If it's useful to you, consider supporti
 Support via GitHub Sponsors: https://github.com/sponsors/mcpambassador
 
 Crypto donations:
+
 - Bitcoin: `3QH4WQoQqnhU3LhbZQU8ttXaNco5Ge3xVp`
 - Ethereum: `0xa5462444c5AEf0B2e32822D9a9B7f91aC794FfF0`

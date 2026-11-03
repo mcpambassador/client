@@ -14,30 +14,7 @@ import { readFileSync } from 'fs';
 import { AmbassadorClient, type ClientConfig } from './index.js';
 import { VERSION } from './version.js';
 import { HOST_TOOLS, isHostTool } from './host-tools.js';
-
-function configureStderrLogging(): void {
-  const write = (level: string, args: unknown[]) => {
-    const rendered = args
-      .map(arg =>
-        typeof arg === 'string'
-          ? arg
-          : (() => {
-              try {
-                return JSON.stringify(arg);
-              } catch {
-                return String(arg);
-              }
-            })()
-      )
-      .join(' ');
-    process.stderr.write(`[${level}] ${rendered}\n`);
-  };
-
-  console.log = (...args: unknown[]) => write('info', args);
-  console.info = (...args: unknown[]) => write('info', args);
-  console.warn = (...args: unknown[]) => write('warn', args);
-  console.debug = (...args: unknown[]) => write('debug', args);
-}
+import { LOG_LEVELS, configureLogging, isLogLevel, type LogLevel } from './logging.js';
 
 function parseArgs(): {
   serverUrl?: string;
@@ -45,6 +22,8 @@ function parseArgs(): {
   allowSelfSigned?: boolean;
   heartbeatInterval?: number;
   cacheTtl?: number;
+  logFile?: string;
+  logLevel?: string;
 } {
   const args = process.argv.slice(2);
 
@@ -53,6 +32,8 @@ function parseArgs(): {
   let allowSelfSigned = false;
   let heartbeatInterval: number | undefined;
   let cacheTtl: number | undefined;
+  let logFile: string | undefined;
+  let logLevel: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -107,6 +88,14 @@ function parseArgs(): {
         }
         cacheTtl = parsed;
       }
+    } else if (arg === '--log-file') {
+      logFile = args[++i];
+    } else if (arg?.startsWith('--log-file=')) {
+      logFile = arg.slice('--log-file='.length);
+    } else if (arg === '--log-level') {
+      logLevel = args[++i];
+    } else if (arg?.startsWith('--log-level=')) {
+      logLevel = arg.slice('--log-level='.length);
     } else if (arg === '--version' || arg === '-v') {
       process.stdout.write(`mcpambassador-client ${VERSION}\n`);
       process.exit(0);
@@ -124,6 +113,8 @@ Options:
   --allow-self-signed         Allow self-signed TLS certificates (dev/test only)
    --heartbeat-interval <sec>  Heartbeat interval in seconds (default: 120, min: 15, max: 300)
    --cache-ttl <sec>           Tool catalog cache TTL in seconds (default: 300, 0 to disable)
+  --log-file <path>           Append logs to this file (mode 0600) instead of stderr
+  --log-level <level>         debug, info, warn or error (default: debug = everything)
   --version, -v               Show version number
   --help, -h                  Show this help message
 
@@ -135,6 +126,8 @@ Environment Variables:
    MCP_AMBASSADOR_HEARTBEAT_INTERVAL   Heartbeat interval in seconds (default: 120)
    MCP_AMBASSADOR_CACHE_TTL            Tool catalog cache TTL in seconds (default: 300)
    MCP_AMBASSADOR_DISABLE_CACHE        Disable client tool cache (default: false, cache is enabled)
+  MCP_AMBASSADOR_LOG_FILE             Append logs to this file instead of stderr (alternative to --log-file)
+  MCP_AMBASSADOR_LOG_LEVEL            debug, info, warn or error (default: debug = everything)
   HOSTNAME                            Used as friendly_name if not specified
 
 Config File Format (JSON):
@@ -158,21 +151,31 @@ Example:
     }
   }
 
-  return { serverUrl, configPath, allowSelfSigned, heartbeatInterval, cacheTtl };
+  return { serverUrl, configPath, allowSelfSigned, heartbeatInterval, cacheTtl, logFile, logLevel };
 }
 
 async function main(): Promise<void> {
-  // MCP stdio requires stdout to carry only protocol frames.
-  // Route all operational logs to stderr.
-  configureStderrLogging();
-
   const {
     serverUrl: argServerUrl,
     configPath,
     allowSelfSigned: argAllowSelfSigned,
     heartbeatInterval: argHeartbeatInterval,
     cacheTtl: argCacheTtl,
+    logFile: argLogFile,
+    logLevel: argLogLevel,
   } = parseArgs();
+
+  // MCP stdio requires stdout to carry only protocol frames. Logs go to stderr by default,
+  // or to a file when --log-file / MCP_AMBASSADOR_LOG_FILE is set (TD-007).
+  const logLevel = argLogLevel ?? process.env.MCP_AMBASSADOR_LOG_LEVEL;
+  if (logLevel !== undefined && !isLogLevel(logLevel)) {
+    console.error(`--log-level must be one of ${LOG_LEVELS.join(', ')}, got: "${logLevel}"`);
+    process.exit(1);
+  }
+  configureLogging({
+    logFile: argLogFile || process.env.MCP_AMBASSADOR_LOG_FILE || undefined,
+    logLevel: logLevel as LogLevel | undefined,
+  });
 
   // Fall back to environment variables if no CLI args provided
   const serverUrl = argServerUrl || process.env.MCP_AMBASSADOR_URL;

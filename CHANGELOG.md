@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Opt-in `--log-file <path>` / `MCP_AMBASSADOR_LOG_FILE` (append, mode 0600, no symlinks) and `--log-level` / `MCP_AMBASSADOR_LOG_LEVEL` (debug, info, warn, error). Default is unchanged: stderr, everything (TD-007).
+- CI, publish and `engines` move to Node 22+ (TD-075).
+
 ## 0.10.1
 
 First npm release since 0.8.0-beta.2 (version aligned with server v0.10.1). Published from GitHub Actions via npm Trusted Publishing (OIDC, with provenance).
