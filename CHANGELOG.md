@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CI, publish and `engines` move to Node 22+ (TD-075).
+
 ## 0.10.1
 
 First npm release since 0.8.0-beta.2 (version aligned with server v0.10.1). Published from GitHub Actions via npm Trusted Publishing (OIDC, with provenance).
