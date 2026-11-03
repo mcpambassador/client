@@ -16,6 +16,29 @@ import { VERSION } from './version.js';
 import { HOST_TOOLS, isHostTool } from './host-tools.js';
 import { LOG_LEVELS, configureLogging, isLogLevel, type LogLevel } from './logging.js';
 
+/** A flag's value must be present and not another flag. */
+function flagValue(flag: string, value: string | undefined): string {
+  if (!value || value.startsWith('--')) {
+    console.error(`${flag} requires a value`);
+    process.exit(1);
+  }
+  return value;
+}
+
+/** Describe a config load failure without echoing JSON.parse text, which can quote key material. */
+function describeConfigError(error: unknown): string {
+  if (error instanceof SyntaxError) {
+    const msg = error.message;
+    const where =
+      /line (\d+) column (\d+)/.exec(msg)?.[0] ??
+      /position (\d+)/.exec(msg)?.[0] ??
+      'unknown position';
+    return `invalid JSON (SyntaxError at ${where})`;
+  }
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return `${(error as Error | undefined)?.name ?? 'Error'}${code ? ` ${code}` : ''}`;
+}
+
 function parseArgs(): {
   serverUrl?: string;
   configPath?: string;
@@ -89,13 +112,13 @@ function parseArgs(): {
         cacheTtl = parsed;
       }
     } else if (arg === '--log-file') {
-      logFile = args[++i];
+      logFile = flagValue('--log-file', args[++i]);
     } else if (arg?.startsWith('--log-file=')) {
-      logFile = arg.slice('--log-file='.length);
+      logFile = flagValue('--log-file', arg.slice('--log-file='.length));
     } else if (arg === '--log-level') {
-      logLevel = args[++i];
+      logLevel = flagValue('--log-level', args[++i]);
     } else if (arg?.startsWith('--log-level=')) {
-      logLevel = arg.slice('--log-level='.length);
+      logLevel = flagValue('--log-level', arg.slice('--log-level='.length));
     } else if (arg === '--version' || arg === '-v') {
       process.stdout.write(`mcpambassador-client ${VERSION}\n`);
       process.exit(0);
@@ -220,7 +243,7 @@ async function main(): Promise<void> {
       }
       console.info(`[client] Loaded config from ${configPath}`);
     } catch (error) {
-      console.error(`[client] Failed to load config file: ${error}`);
+      console.error(`[client] Failed to load config file: ${describeConfigError(error)}`);
       process.exit(1);
     }
   } else {

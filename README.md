@@ -112,7 +112,7 @@ Options:
 
 ### Logging
 
-By default the client logs to stderr, which MCP hosts capture (VS Code shows it in the output panel and may flag it as warnings). To keep that out of the host, set `--log-file <path>` (or `MCP_AMBASSADOR_LOG_FILE`): log lines are then appended to the file with an ISO timestamp, created with mode `0600` and never through a symlink. Fatal errors (`console.error`) are still written to stderr as well. If the file cannot be opened, the client warns on stderr and logs there instead. Use `--log-level warn` (or `MCP_AMBASSADOR_LOG_LEVEL`) to drop info and debug lines. The file is not rotated; point it at a location you manage.
+By default the client logs to stderr, which MCP hosts capture (VS Code shows it in the output panel and may flag it as warnings). To keep that out of the host, set `--log-file <path>` (or `MCP_AMBASSADOR_LOG_FILE`): log lines are then appended to the file with an ISO timestamp, created with mode `0600`. On Linux and macOS the client refuses a symlink, a non-regular file (such as a FIFO) and a file owned by another user, and logs to stderr instead; these checks are not applied on Windows. Fatal errors (`console.error`) are still written to stderr as well. If the file cannot be opened, the client warns on stderr and logs there instead. Use `--log-level warn` (or `MCP_AMBASSADOR_LOG_LEVEL`) to drop info and debug lines. The file is not rotated; point it at a location you manage.
 
 ## How It Works
 

@@ -7,6 +7,7 @@ import {
   writeFileSync,
   chmodSync,
 } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configureLogging, isLogLevel } from '../logging.js';
@@ -119,6 +120,64 @@ describe('configureLogging (TD-007)', () => {
     c.warn('still logged');
     expect(lines[0]).toMatch(/cannot open log file/);
     expect(lines[1]).toBe('[warn] still logged\n');
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'refuses a FIFO without blocking and logs to stderr',
+    () => {
+      const { c } = fakeConsole();
+      const fifo = join(dir(), 'pipe.log');
+      execFileSync('mkfifo', [fifo]);
+      const lines: string[] = [];
+      configureLogging({ logFile: fifo }, { console: c, writeStderr: l => void lines.push(l) });
+      c.info('x');
+      expect(lines[0]).toMatch(/cannot open log file/);
+      expect(lines[1]).toBe('[info] x\n');
+    }
+  );
+
+  it.skipIf(process.platform === 'win32')('refuses a file owned by another user', () => {
+    const { c } = fakeConsole();
+    const f = join(dir(), 'foreign.log');
+    writeFileSync(f, 'keep\n');
+    const lines: string[] = [];
+    configureLogging(
+      { logFile: f },
+      {
+        console: c,
+        writeStderr: l => void lines.push(l),
+        getuid: () => (process.getuid?.() ?? 0) + 1,
+      }
+    );
+    c.info('x');
+    expect(lines[0]).toMatch(/owned by another user/);
+    expect(readFileSync(f, 'utf8')).toBe('keep\n');
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'warns, but still logs, to a group/world-readable file',
+    () => {
+      const { c } = fakeConsole();
+      const f = join(dir(), 'open.log');
+      writeFileSync(f, '');
+      chmodSync(f, 0o644);
+      const lines: string[] = [];
+      configureLogging({ logFile: f }, { console: c, writeStderr: l => void lines.push(l) });
+      c.info('x');
+      expect(lines[0]).toMatch(/readable by other users/);
+      expect(readFileSync(f, 'utf8')).toMatch(/\[info\] x\n$/);
+    }
+  );
+
+  it('renders Error objects and circular values without throwing', () => {
+    const { c } = fakeConsole();
+    const lines: string[] = [];
+    configureLogging({}, { console: c, writeStderr: l => void lines.push(l) });
+    const circ: Record<string, unknown> = {};
+    circ.self = circ;
+    c.warn('failed:', new Error('boom'), circ);
+    expect(lines[0]).toMatch(/^\[warn\] failed: Error: boom/);
+    expect(lines[0]).toMatch(/<ref \*1>/);
   });
 
   it('isLogLevel', () => {
