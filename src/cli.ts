@@ -15,29 +15,7 @@ import { AmbassadorClient, type ClientConfig } from './index.js';
 import { VERSION } from './version.js';
 import { HOST_TOOLS, isHostTool } from './host-tools.js';
 import { LOG_LEVELS, configureLogging, isLogLevel, type LogLevel } from './logging.js';
-
-/** A flag's value must be present and not another flag. */
-function flagValue(flag: string, value: string | undefined): string {
-  if (!value || value.startsWith('--')) {
-    console.error(`${flag} requires a value`);
-    process.exit(1);
-  }
-  return value;
-}
-
-/** Describe a config load failure without echoing JSON.parse text, which can quote key material. */
-function describeConfigError(error: unknown): string {
-  if (error instanceof SyntaxError) {
-    const msg = error.message;
-    const where =
-      /line (\d+) column (\d+)/.exec(msg)?.[0] ??
-      /position (\d+)/.exec(msg)?.[0] ??
-      'unknown position';
-    return `invalid JSON (SyntaxError at ${where})`;
-  }
-  const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  return `${(error as Error | undefined)?.name ?? 'Error'}${code ? ` ${code}` : ''}`;
-}
+import { describeConfigError, flagValue } from './cli-args.js';
 
 function parseArgs(): {
   serverUrl?: string;
